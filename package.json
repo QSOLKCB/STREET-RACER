@@ -1,9 +1,9 @@
 {
   "name": "street-racer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "An offline garage-to-grid racing game, built with browser standards.",
+  "description": "An offline-first monorepo of garage, supercar, highway and road-combat racing games.",
   "license": "Apache-2.0",
   "scripts": {
     "test": "node --test tests/*.test.mjs",

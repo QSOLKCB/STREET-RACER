@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 
 const root=path.resolve(import.meta.dirname,'..');
 const mode=process.argv[2]||'check';
-const roots=['index.html','style.css','manifest.webmanifest','LICENSE','js','assets','vendor'];
+const roots=['index.html','arcade-hub.html','style.css','manifest.webmanifest','LICENSE','js','assets','vendor','games','shared'];
 async function inventory(){
   const files=[];
   async function walk(relative){
@@ -37,7 +37,9 @@ self.addEventListener('fetch',event=>{
   if(request.mode==='navigate'){
     event.respondWith((async()=>{
       try{const response=await fetch(request);if(response.ok)return response;}catch{}
-      return (await caches.open(CACHE)).match(new URL('./index.html',self.registration.scope));
+      const cache=await caches.open(CACHE);
+      const offline=url.pathname.endsWith('/')?new URL('index.html',url):url;
+      return (await cache.match(offline.href,{ignoreSearch:true}))||(await cache.match(new URL('./index.html',self.registration.scope)));
     })());return;
   }
   url.search='';url.hash='';

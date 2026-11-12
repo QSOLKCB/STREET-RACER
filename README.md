@@ -232,3 +232,33 @@ No *Street Rod* binaries, artwork, recordings, vehicle badges or dialogue are
 included. The historical game is credited as an inspiration for the gameplay loop.
 
 <p align="center"><strong>QSOL-IMC · AFTER HOURS MOTOR WORKS</strong><br>Your build. Your story.</p>
+
+
+## Racing monorepo — four playable games
+
+[**Open the Racing Arcade**](arcade-hub.html) to choose from these independently runnable games:
+
+| Game | Location | Experience |
+| --- | --- | --- |
+| STREET RACER (existing) | [root](index.html); [package boundary](games/street-racer/README.md) | Garage, career, tuning and arcade side events. Kept at the root for backwards-compatible GitHub Pages, saves and CI. |
+| VELOCITY II | [games/supercar-circuit/](games/supercar-circuit/index.html) | Original 1990s supercar circuit racer inspired by the *Need for Speed II* era; five rivals, car/track choice, three laps, nitro. |
+| COAST RUN | [games/coast-run/](games/coast-run/index.html) | Original *OutRun*-inspired scenic checkpoint highway racer; countdown and three time extensions. |
+| OUTLAND ROAD | [games/outland-road/](games/outland-road/index.html) | Original *Outlander*-inspired road-combat arcade racer; ammunition, collision damage, takedowns. |
+
+The new games share `shared/racer/` (integer Q16.16 race rules, pseudo-3D Canvas renderer, controls and optional synthesis). Their page entrypoints and docs are in `games/`. All paths are relative and work on GitHub Pages' `/STREET-RACER/` subpath. The existing career game, `vendor/` pin inventory, and source-compatible PWA are preserved.
+
+**Repository integration:** the new runtime imports VANILLAJS's pinned `FixedClock` and `seededRandom`, directly calls the pinned SONIFICATION `APP/js/synthesis.js` on requested sound cues, and implements OPT's early working-set reduction for collision, weapon and rendering candidates. OPT is an optimization methodology, **not** a linked library or a proof of speed. Exact source commitments and scope are in [docs/MONOREPO.md](docs/MONOREPO.md); copied donor files and their SHA-256 fingerprints remain verified by `vendor/PROVENANCE.json`.
+
+Local verification (Node 24+, no runtime package install):
+
+```sh
+node --test tests/*.test.mjs
+node scripts/verify-vendor.mjs
+node scripts/site.mjs refresh # regenerate the content-addressed PWA precache when files change
+node scripts/site.mjs check
+node scripts/site.mjs build _site
+```
+
+For a full Chromium check, use the GitHub Actions workflow; it drives the existing STREET RACER UI and all three new games. Builds contain only local public files. No telemetry, external assets or paid service is needed.
+
+All new game content is original and is **inspired by** retro racing genres; it does not contain or claim to be an official clone of any commercial franchise.

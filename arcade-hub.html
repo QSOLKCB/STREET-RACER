@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0c1525">
+<title>QSOL-IMC Racing Arcade · Four roads, four worlds</title>
+<meta name="description" content="A collection of original, offline-first browser racing games built with VANILLAJS, OPT methods and SONIFICATION.">
+<link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./shared/racer/styles.css">
+<style>
+.hub-hero{padding:65px 0 30px;max-width:900px}.hub-hero h1{font-size:clamp(50px,9vw,108px)}
+.hub-hero h1 em{font-style:normal;color:var(--accent)}.hub-hero p{font-size:clamp(16px,2vw,21px);max-width:700px;color:#bdcadb}
+.games{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:30px 0 65px}
+.game-card{display:flex;min-height:270px;flex-direction:column;justify-content:space-between;padding:clamp(20px,3vw,38px);background:linear-gradient(155deg,#25415b,#0e1726 72%);border:1px solid #3d556c;border-radius:12px;text-decoration:none;transition:transform .15s,border-color .15s}
+.game-card:hover{border-color:var(--accent);transform:translateY(-3px)}
+.game-card:nth-child(2){background:linear-gradient(145deg,#645475,#182438 70%)}
+.game-card:nth-child(3){background:linear-gradient(145deg,#b06956,#242943 70%)}
+.game-card:nth-child(4){background:linear-gradient(145deg,#765741,#252128 70%)}
+.game-card h2{font-size:clamp(27px,4vw,45px);line-height:1;margin:12px 0;letter-spacing:-.045em}
+.game-card p{color:#d6dfeb;max-width:360px}
+.game-card strong{color:#9ff3fd;letter-spacing:.14em;font-size:12px}
+@media(max-width:700px){.games{grid-template-columns:1fr}.game-card{min-height:245px}.hub-hero{padding-top:38px}}
+</style>
+</head><body><div class="shell"><header class="topbar"><a class="logo" href="./">QSOL-IMC <span>///</span> MOTOR WORKS</a>
+<nav class="links" aria-label="Site navigation"><a href="./">ORIGINAL STREET RACER</a><a href="https://github.com/QSOLKCB/STREET-RACER">SOURCE CODE</a></nav></header>
+<main><div class="hub-hero"><div class="eyebrow">QSOL-IMC PRESENTS / THE OFFLINE RACING COLLECTION</div>
+<h1>FOUR ROADS.<br><em>NO LIMITS.</em></h1>
+<p>Garage culture, exotic supercars, sun-drenched highways and post-apocalyptic road battles. Four independently playable experiences. One inspectable, dependency-light repository.</p></div>
+<div class="games">
+<a class="game-card" href="./"><div><div class="eyebrow">01 / CAREER & GARAGE</div><h2>STREET RACER</h2><p>Build the car. Buy parts. Tune the drivetrain. Dominate the street circuit and five arcade side events.</p></div><strong>ENTER THE GARAGE →</strong></a>
+<a class="game-card" href="./games/supercar-circuit/"><div><div class="eyebrow">02 / SUPERCAR CIRCUIT</div><h2>VELOCITY II</h2><p>Need for Speed II–inspired 1990s arcade supercars, multiple scenic circuits, traffic rivals, three-lap events and nitro.</p></div><strong>START THE TOUR →</strong></a>
+<a class="game-card" href="./games/coast-run/"><div><div class="eyebrow">03 / SCENIC CHECKPOINT RUN</div><h2>COAST RUN</h2><p>OutRun-inspired coastal sunsets, winding highways and a checkpoint countdown. Beat the horizon, not the rush-hour commute.</p></div><strong>CHASE THE SUNSET →</strong></a>
+<a class="game-card" href="./games/outland-road/"><div><div class="eyebrow">04 / ROAD COMBAT</div><h2>OUTLAND ROAD</h2><p>Outlander-inspired wasteland driving. Ram opponents, manage ammunition and survive the road-war circuit.</p></div><strong>RULE THE WASTELAND →</strong></a>
+</div></main><footer class="footer"><span>ALL ART AND GAMEPLAY ARE ORIGINAL INTERPRETATIONS, NOT COPIES OF COMMERCIAL GAMES.</span><span>OPEN SOURCE · OFFLINE FIRST · NO ANALYTICS</span></footer></div></body></html>
