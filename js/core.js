@@ -72,7 +72,7 @@ export function validateCareer(input) {
     return { day: num(row.day, 1, MAX_REVISION, 'history day', true), text: text(row.text, 240, 'history text') };
   });
   const bestTimes = plain(source.bestTimes, 'Best times');
-  for (const course of COURSES) if (own(bestTimes, course.id)) state.bestTimes[course.id] = num(bestTimes[course.id], STEP, 600, 'best time');
+  for (const course of COURSES) if (own(bestTimes, course.id)) state.bestTimes[course.id] = num(bestTimes[course.id], STEP, 900, 'best time');
   return state;
 }
 
@@ -311,7 +311,8 @@ function drive(race, driver, controls, isOpponent) {
   driver.speed = Math.min(driver.speed, maxSpeed * (isOpponent ? 0.86 + race.rival.skill * 0.10 : 1));
   if (race.course.type === 'road') {
     const speedRatio = driver.speed / Math.max(1, maxSpeed);
-    const steering = controls.steer * (0.50 + Math.min(1, driver.speed / 18)) * Math.min(1, driver.speed / 4);
+    // Steering authority grows with speed so a lane change at full speed is not sluggish.
+    const steering = controls.steer * (0.55 + Math.min(1.1, driver.speed / 16)) * Math.min(1, driver.speed / 4);
     const push = curve * speedRatio * speedRatio * (0.82 / stats.grip);
     driver.x = clamp(driver.x + (steering - push) * step, -1.6, 1.6);
     driver.offroad = Math.abs(driver.x) > 0.92;
@@ -361,7 +362,7 @@ function tick(race, input) {
     finish(race, won ? 'player' : 'opponent', won ? 'First across the line.' : `${race.rival.name} crossed the line first.`);
   } else if (race.player.condition <= 0) finish(race, 'opponent', 'Mechanical failure. Return to the garage for repairs.');
   else if (race.player.fuel <= 0 && race.player.speed < 1) finish(race, 'opponent', 'Out of fuel. A workshop shift can cover the refill.');
-  else if (race.time >= (race.course.type === 'drag' ? 120 : 300)) finish(race, 'opponent', 'Race time limit reached.');
+  else if (race.time >= race.course.timeLimit) finish(race, 'opponent', 'Race time limit reached.');
 }
 
 export function stepRace(race, controls = {}, dt = STEP) {

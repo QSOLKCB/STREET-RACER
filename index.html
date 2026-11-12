@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#171919">
-  <meta name="description" content="Build your ride. Find your rivals. Own the night. An original offline garage and street racing game by QSOL-IMC.">
+  <meta name="description" content="Build your ride. Find your rivals. Own the night. An original offline garage and street racing game with five arcade side events, by QSOL-IMC.">
   <title>STREET RACER · Own the night</title>
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="manifest" href="./manifest.webmanifest">
@@ -28,6 +28,7 @@
         <button data-view="parts"><span class="nav-icon" aria-hidden="true">⚒</span>Parts & tuning<span class="nav-index">03</span></button>
         <button data-view="meet"><span class="nav-icon" aria-hidden="true">⚑</span>Night meet<span class="nav-index">04</span></button>
         <button data-view="logbook"><span class="nav-icon" aria-hidden="true">◷</span>Logbook<span class="nav-index">05</span></button>
+        <button data-view="arcade"><span class="nav-icon" aria-hidden="true">◎</span>Arcade<span class="nav-index">06</span></button>
       </nav>
       <div class="sidebar-bottom"><div class="club-stamp">BUILT.<br>NOT BOUGHT.<span>EVERY BOLT HAS A STORY.</span></div><button data-action="help" class="subtle-button">Driver's handbook <span>↗</span></button><button data-action="save-menu" class="subtle-button">Save / load <span>↗</span></button><div id="save-status" class="save-status" role="status">LOCAL GARAGE · AUTO SAVE</div></div>
     </aside>
@@ -35,6 +36,7 @@
     <footer class="site-footer"><span>HAND BUILT BY QSOL-IMC</span><span>VANILLAJS · E8 MUSIC · SONIFICATION · GAMES · ARCADE</span><button class="text-button" data-action="credits">Credits & sources</button></footer>
   </div>
   <section id="race-screen" class="race-screen" aria-label="Race" hidden></section>
+  <section id="arcade-screen" class="race-screen" aria-label="Arcade side event" hidden></section>
   <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-head"><h2 id="dialog-title"></h2><button class="icon-button" data-action="close" aria-label="Close dialog">×</button></div><div id="dialog-body"></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <input type="file" id="import-file" accept="application/json,.json" hidden>

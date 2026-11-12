@@ -21,9 +21,9 @@ export const PARTS = Object.freeze([
 ]);
 
 export const COURSES = Object.freeze([
-  { id: 'foundry', name: 'Foundry Quarter', type: 'drag', length: 402, theme: 'industrial', curveScale: 0, lanes: 2, description: 'A quarter-mile under the foundry lights. Launch clean and watch the tach.', recordLabel: 'Quarter mile' },
-  { id: 'coast', name: 'Saltline Run', type: 'road', length: 2400, theme: 'coast', curveScale: 0.60, lanes: 2, description: 'The coast road at sunset. Sweeping corners and a clear view to the next bend.', recordLabel: 'Coast sprint' },
-  { id: 'canyon', name: 'Blackridge Pass', type: 'road', length: 3200, theme: 'canyon', curveScale: 1.0, lanes: 2, description: 'A demanding hill road. Lift for the tighter bends; grip matters as much as horsepower.', recordLabel: 'Pass sprint' }
+  { id: 'foundry', name: 'Foundry Quarter', type: 'drag', length: 402, timeLimit: 120, theme: 'industrial', curveScale: 0, lanes: 2, description: 'A quarter-mile under the foundry lights. Launch clean and watch the tach.', recordLabel: 'Quarter mile' },
+  { id: 'coast', name: 'Saltline Run', type: 'road', length: 4800, timeLimit: 420, theme: 'coast', curveScale: 0.60, lanes: 2, description: 'The long coast road at sunset. Sweeping corners, a clear view to the next bend and plenty of road to make up time.', recordLabel: 'Coast sprint' },
+  { id: 'canyon', name: 'Blackridge Pass', type: 'road', length: 6400, timeLimit: 600, theme: 'canyon', curveScale: 1.0, lanes: 2, description: 'A demanding hill road over the ridge. Lift for the tighter bends; grip and fuel matter as much as horsepower.', recordLabel: 'Pass sprint' }
 ]);
 
 export const RIVALS = Object.freeze([

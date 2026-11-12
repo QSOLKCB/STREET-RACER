@@ -15,9 +15,10 @@
 </p>
 
 <p align="center">
-  <strong>8 original classics · 8 rivals · 3 roads · 18 upgrades · 4 garage bays</strong><br>
+  <strong>8 original classics · 8 rivals · 3 roads · 18 upgrades · 4 garage bays · 5 arcade side events</strong><br>
   <a href="#play-locally">Play locally</a> ·
   <a href="docs/GAMEPLAY.md">Driver's handbook</a> ·
+  <a href="docs/ARCADE.md">Arcade side events</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="docs/PROVENANCE.md">Source provenance</a> ·
   <a href="docs/VALIDATION.md">Validation evidence</a>
@@ -52,14 +53,16 @@ the initial installation completes.
   on Blackridge Pass. The garage and races remain available after victory.
 - **Keep going after a loss.** A workshop shift always earns $180, even after
   losing the last car. There is no career deadline.
+- **Burn a Saturday at the arcade.** Five stake-free side events, from a
+  pseudo-3D highway to an elevated stunt course, in your own car's paint.
 
 ## Three roads, three reasons to build
 
 | Event | Distance | What matters |
 | --- | ---: | --- |
 | **Foundry Quarter** | 402 m | A clean launch, acceleration and well-timed shifts. |
-| **Saltline Run** | 2,400 m | Flowing coastal bends, a stable line and useful top speed. |
-| **Blackridge Pass** | 3,200 m | Cornering grip, braking and composure through the hills. |
+| **Saltline Run** | 4,800 m | Long flowing coastal bends, a stable line and useful top speed. |
+| **Blackridge Pass** | 6,400 m | Cornering grip, braking, fuel and composure through the hills. |
 
 The workshop and classified listings use original Canvas2D car illustrations.
 The racing view adds roadside scenery, curves, a rival, instruments and a
@@ -70,6 +73,22 @@ An original instrumental score combines E8-derived phrase material with
 plucked-string synthesis, bass and percussion. Engine and tyre sounds respond
 to game telemetry. **Sound starts only when you turn it on.** The musical
 mapping is an authored interpretation, not a scientific claim about E8 or engines.
+
+## Five ways to burn a Saturday
+
+The **Arcade** view runs five original side events that never touch your career:
+
+| Side event | Picture | Finish |
+| --- | --- | --- |
+| **Horizon Tour** | Canvas2D pseudo-3D highway with traffic and nitro | 5 stages, 7,500 m |
+| **Vector Ring** | Low-poly WebGL circuit, eight gates, four rivals | 5 laps |
+| **Impact Arena** | Demolition derby against hunting rivals | 5 knockouts |
+| **Boost Pitch** | Car football with jumps, drifts and boost | First to 5 goals |
+| **Skyline Span** | Narrow elevated course with two real gaps | 3 laps |
+
+They adapt the Racing Lab from [VANILLAJS pull request #83](https://github.com/QSOLKCB/VANILLAJS/pull/83)
+on top of the pinned VANILLAJS WebGL renderer and maths. Every run can export a
+JSON receipt of its per-tick inputs. See the [arcade guide](docs/ARCADE.md).
 
 ## Play locally
 
@@ -105,9 +124,13 @@ line become more useful as the road gets less straight.
 | Shift up / down | **E / Q** | Right / left shoulder |
 | Pause / resume | **Esc** / **P** | Start |
 | Restart current run | **R** | Pause menu |
+| Boost (arcade) | **Shift** | Shoulder button |
+| Drift / jump / flip (arcade) | **X** / **Space** / **F** | X / A / Y |
 
-Touch buttons are on the race screen. Controls are released and racing pauses
-when the window loses focus or the tab is hidden; resume deliberately when ready.
+Touch buttons are on the race screen. Keyboard and touch steering ramp in over a
+short moment so a tap nudges the car instead of snapping it; a gamepad stick is
+read directly. Controls are released and racing pauses when the window loses
+focus or the tab is hidden; resume deliberately when ready.
 Let gamepad controls return to neutral after connecting or reconnecting.
 
 Revving during the three-second countdown is allowed. In manual mode, shift
@@ -137,7 +160,7 @@ in its original brief. They are included locally with their licences:
 
 | Project | Contribution |
 | --- | --- |
-| **VANILLAJS** | Fixed-step clock with bounded catch-up. |
+| **VANILLAJS** | Fixed-step clock with bounded catch-up, vector/quaternion maths and the low-poly WebGL renderer behind the arcade. The arcade rules adapt its Racing Lab pull request. |
 | **GAMES** | Standard gamepad input and neutral rearming. |
 | **ARCADE** | Seeded noise used by percussion and tyre sound. |
 | **E8_MUSIC** | Root generation, projection and traversal for original musical phrases. |
@@ -170,7 +193,7 @@ node scripts/site.mjs check
 `build` stages only the public game, manifest, licences and vendor sources in
 `_site`; it does not bundle, minify or download anything. The test suites exercise
 career transitions, save admission, deterministic replay, race settlement,
-rendering contracts and audio resource bounds. Hosted browser checks exercise the
+rendering contracts, audio resource bounds and the five arcade side events. Hosted browser checks exercise the
 packaged game and preserve their receipts and screenshots, including failures.
 
 The workflow installs pinned Playwright tooling in an isolated runner-temporary

@@ -13,7 +13,7 @@ node scripts/site.mjs check
 node scripts/site.mjs build _site
 ```
 
-The first implementation has 31 regression tests:
+The current implementation has 47 regression tests:
 
 | Area | Coverage |
 | --- | --- |
@@ -21,6 +21,7 @@ The first implementation has 31 regression tests:
 | Determinism and admission | Twelve course/seed replay pairs; 30/60/120 Hz fixed-step equivalence; queued manual shifts; extreme controls; UTF-8 save bounds, finite values, prototype-bearing input and identity limits. These are included in the career total. |
 | Audio (5) | No audio allocation before activation; deterministic E8-derived score; missing audio support; pause/mute/resume; bounded voices and instrument buffers; no burst after a long frame. |
 | Renderer (5) | Rounded fractional-DPR geometry, unchanged backing-store reuse, finite bounded perspective, deterministic road geometry, read-only input state and unavailable Canvas2D. |
+| Arcade (16) | Five modes with longer objectives; invalid timesteps; same-input repeatability; hostile control values; five highway stages and a flat-out tour lasting over 80 s; rivals recovering from contact immunity; boost that accumulates and bleeds off; no upward teleport after falling under the stunt deck; five circuit laps; five derby knockouts with health remaining; football goals; stunt gaps, respawns and three laps; finite bounded WebGL geometry and paint mapping; the retro road projection and a mutation-free draw; bounded audio telemetry; and the entry points and safety handlers. |
 
 The source-hashed Node receipt and its original output are in [evidence/first-night](evidence/first-night/). The donor verifier checks every pinned file against the checked-in SHA-256 manifest and rejects unknown vendor files. The site gate checks every local module import and the complete, content-addressed offline inventory.
 
@@ -39,6 +40,7 @@ The browser suite serves the game under `/STREET-RACER/`, the same path shape as
 - Export, malformed/oversized import rejection, cancelled import and confirmed restoration.
 - Exact repeated/fresh renderer pixels at fractional DPR, 320/390px layout/navigation/help/save access, and emulated touch hold/release/pause.
 - Offline worker reload and continued driving, disabled storage with working export, quarantined-save recovery after reload, and Canvas2D failure with surviving controls.
+- All five arcade side events launched from the garage, driven with the keyboard, checked for drawn Canvas pixels or a live WebGL canvas, paused on blur with a frozen tick count, resumed, paused with Escape, exported as a parsed run JSON, and exited with the career byte-identical.
 
 The browser clock advances genuine animation frames and input processing; the suite does not mutate live simulation state. `__streetRacer` exposes only copied observation snapshots. Injected browser-capability failures and stored-save fixtures are explicitly identified in the tests.
 
@@ -52,9 +54,14 @@ Independent review reproduced and fixed exhausted pink-slip prize identities, ov
 
 ## Limits
 
-- Racing is an arcade simulation using bounded JavaScript numbers, not a formally verified physical model. There is no vehicle-to-vehicle collision model in this version.
+- Racing is an arcade simulation using bounded JavaScript numbers, not a formally verified physical model. Career races have no vehicle-to-vehicle collision model; the arcade uses linear impulse contacts without swept collision.
+- Hosted Chromium renders WebGL through SwiftShader. That exercises the code path, not GPU drivers, real-device frame rates or visual quality on hardware.
 - Same-source, same-runtime replay is tested. Cross-engine bit-identical floating-point results are not claimed.
 - Headless Chromium and emulated touch do not establish physical-phone, gamepad hardware, Firefox, WebKit or subjective listening quality.
 - Native Canvas inspection is separate from browser screenshots. Native pixel receipts do not substitute for running the packaged application.
 - There is no before/after runtime benchmark for this new game. Fixed-step limits, backing-store reuse and bounded audio resources are inspectable contracts, not a universal performance promise.
 - Merge, release and Pages enablement remain owner actions. PR validation does not deploy the public site.
+
+## Arcade side events and longer roads (local evidence)
+
+[evidence/arcade-side-events](evidence/arcade-side-events/) holds the Node receipt for the 47-test suite and a local headless Chromium receipt for all 18 browser checks, produced with the pinned Playwright module and a locally installed Chromium build rather than the hosted runner. It records the five arcade modes launched, driven, paused, exported and exited with the career unchanged. The hosted workflow run attached to the pull request remains the authoritative browser evidence.

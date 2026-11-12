@@ -64,8 +64,8 @@ route. Service and refuel before a long challenge.
 | Route | Length | Character |
 | --- | ---: | --- |
 | Foundry Quarter | 402 m | Straight quarter-mile. Steering is fixed to your lane. |
-| Saltline Run | 2,400 m | Flowing coastal road with gentler bends. |
-| Blackridge Pass | 3,200 m | Hill-road sprint with tighter curves and roadside markers. |
+| Saltline Run | 4,800 m | Long flowing coastal road with gentler bends. |
+| Blackridge Pass | 6,400 m | Long hill-road run with tighter curves and roadside markers. |
 
 The simulation advances in **fixed 1/60-second steps**. The browser may render
 at another refresh rate; accumulated frame time feeds the same steps. Pausing
@@ -84,17 +84,24 @@ uses metres and seconds. The model is intentionally an arcade driving model,
 not a mechanical engineering or real-road performance model. The estimated
 0–100 figure is a build comparison, not a measured vehicle certification.
 
-On road events, steer against the bend and keep the car on the paved surface.
+Keyboard and touch steering ramp in over about 0.14 s and release in 0.07 s, so
+a tap nudges the car rather than snapping it; a gamepad stick is read directly.
+Steering authority grows with speed. On road events, steer against the bend and
+keep the car on the paved surface.
 Excess speed in a tight corner scrubs speed; leaving the road slows and damages
 the car. Clipping a cone or barrel costs speed and condition. Their positions are
 seeded, so the same career state and race can be retried consistently. Rivals
 follow a deterministic line and do not steer into the player's lane to force
-collisions. There is no vehicle-to-vehicle collision model in this first version.
+collisions. Career races have no vehicle-to-vehicle collision model; the arcade
+side events do.
 
 The first car across the line wins. If both cross during the same simulation
 step, interpolated finish times decide the result. Mechanical failure, a complete
 fuel stop, retirement or the time limit loses the challenge. Race time limits are
-120 seconds on the strip and 300 seconds on road courses.
+120 seconds on the strip, 420 seconds on Saltline Run and 600 seconds on
+Blackridge Pass. A stock Sparrow needs roughly two minutes for the coast and
+about three and a quarter for the Pass, so fuel and condition matter more on
+the long roads.
 
 ## Invitations and the crown
 
@@ -132,6 +139,16 @@ cars, fuel, wear, reputation, win/loss totals or best-time records. It still rec
 that an attempt was completed. Practice does not unlock the crown. Unlocked
 rivals may practise on all three routes, including the Monarch away from the Pass.
 
+## The arcade
+
+The **Arcade** view runs five stake-free side events: Horizon Tour (five 1,500 m
+highway stages), Vector Ring (five laps), Impact Arena (five knockouts), Boost
+Pitch (first to five goals) and Skyline Span (three elevated laps with real gaps).
+They use your active car's paint and nothing else from the career; cash, cars,
+fuel, condition, reputation and records are untouched. **Shift** boosts, **X**
+drifts, **Space** jumps in the 3D modes and **F** flips while airborne. The
+[arcade guide](ARCADE.md) covers each mode, the controls and the run JSON export.
+
 ## Saves and result integrity
 
 The public save envelope is JSON:
@@ -159,10 +176,10 @@ by their owner and are not an anti-cheat or authenticated leaderboard format.
 Run the suite from the repository root with:
 
 ```sh
-node --test tests/core.test.mjs
+node --test tests/core.test.mjs tests/arcade.test.mjs
 ```
 
-The suite exercises garage/economy transitions; malformed, oversized and hostile
+The arcade suite covers the five side events separately. The career suite exercises garage/economy transitions; malformed, oversized and hostile
 save inputs; resource admission; a stock starter win; manual redline and road
 costs; fixed-step parity at 30/60/120 presentation Hz; queued shift presses;
 deterministic replay over all routes and four seeds; practice isolation; one-time

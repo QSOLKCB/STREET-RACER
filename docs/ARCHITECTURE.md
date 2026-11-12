@@ -20,6 +20,9 @@ performance workload has not been exercised.
 | `js/app.js` | Browser input, views, dialogs, frame scheduling, persistence and subsystem coordination. |
 | `js/render.js` | Original car, garage and road drawing; reads simulation state without changing it. |
 | `js/audio.js` | Original arrangement, bounded Web Audio voices and telemetry-driven engine/tyre sound. |
+| `js/arcade.js` | Stake-free arcade side events: five fixed-step vehicle modes, contact, goals, gaps and objectives. |
+| `js/arcade-geometry.js` | Original low-poly course and vehicle triangles for the WebGL modes; reads world state only. |
+| `js/arcade-render.js` | Pseudo-3D highway raster and the WebGL follow camera; never advances the world. |
 | `vendor/` | Unmodified pinned source/licence files and the provenance manifest. |
 | `scripts/site.mjs`, `sw.js` | Public inventory, static staging and the generated offline worker. |
 | `tests/` | Pure module regressions and the packaged browser scenario suite. |
@@ -100,7 +103,8 @@ functions are used: this is not a cross-engine bit-exactness or formal-proof cla
 
 The arcade model includes acceleration, braking, grip, gear ratios, shift delay,
 condition-dependent power, fuel, sustained redline damage, off-road losses and
-roadside hazards. Finish-line crossing is interpolated within the last step to
+roadside hazards, with a per-course time limit. Finish-line crossing is
+interpolated within the last step to
 resolve two cars crossing in one tick. It is not a certified real-vehicle dynamics
 or engine model; the displayed build estimate is not a real-world performance promise.
 
@@ -123,14 +127,40 @@ That fallback does not make road scenery observable without a working canvas.
 
 Keyboard keys, touch pointers and standard gamepad controls feed one normalized
 input sample. The GAMES reader supplies deadzones, button edges and neutral
-rearming. Pause, blur, visibility loss, restarting and leaving a race release
-held inputs. The game does not resume an interrupted race until the driver
+rearming. Digital steering from keys or touch ramps in over about 0.14 s and
+releases in 0.07 s before it reaches the simulation; analog stick values bypass
+the ramp. Pause, blur, page hide, visibility loss, restarting and leaving a race
+release held inputs. The game does not resume an interrupted race until the driver
 explicitly resumes. Text fields and open dialogs guard driving shortcuts.
 
 Native buttons, labels, dialogs and forms provide the interaction surface around
 the canvas. High contrast is an explicit preference. Reduced motion follows the
 operating system preference; it is a presentation setting and does not alter race
 outcomes.
+
+## Arcade side events
+
+The arcade is a second, independent runtime beside the career race. `beginArcade`
+builds its own screen, world and `FixedClock` (`step` 1/60, `maxFrame` 0.1,
+`maxSteps` 8) and marks the shell inert; a career race and a side event can never
+run together. The world advances only through `stepArcade(world, input, dt)` with
+the clock's exact step, and every tick's input is appended to a bounded replay
+list that the player can download as JSON. The modes, objectives, contact rules,
+ball physics and elevated-course heights are owned by `js/arcade.js`; they adapt
+VANILLAJS pull request #83 but are not shared engine code.
+
+The only career fact a side event reads is the active car's paint. It never calls
+`applyAction`, `settleRace` or the save path, so the career revision, cash, cars
+and records are byte-identical before and after a run; the browser suite asserts
+this. Pause, resume, restart, focus loss, controller loss, fullscreen and the
+shared sound button reuse the race screen's handlers and presentation classes.
+
+The pseudo-3D highway draws with the same `prepareCanvas` contract as the career
+renderer. The 3D modes create a pinned VANILLAJS `Renderer` on a fresh canvas per
+run and release the GPU context on exit through `WEBGL_lose_context`. A lost
+context pauses the run and reports it; an unavailable WebGL leaves the
+instruments, pause and exit controls in place. Engine and tyre sound come from the
+career audio receiver fed by `arcadeTelemetry`, a bounded speed-to-rpm mapping.
 
 ## Audio lifecycle and resource bounds
 

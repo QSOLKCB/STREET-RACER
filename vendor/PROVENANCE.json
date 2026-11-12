@@ -108,6 +108,20 @@
     },
     {
       "repository": "QSOLKCB/VANILLAJS",
+      "commit": "1c195d910405e89a6f98ecc914309ff583f0ac7e",
+      "source": "modules/math/index.js",
+      "local": "vendor/vanillajs/modules/math/index.js",
+      "sha256": "4f4ebf0786b97342c11004b8830a535890b16693458a0436edb1fc581a411da7"
+    },
+    {
+      "repository": "QSOLKCB/VANILLAJS",
+      "commit": "1c195d910405e89a6f98ecc914309ff583f0ac7e",
+      "source": "modules/render-webgl/index.js",
+      "local": "vendor/vanillajs/modules/render-webgl/index.js",
+      "sha256": "af088cc5c4456ee07908d1561327c37c11d5c168b7d1b2c366149883f070e87c"
+    },
+    {
+      "repository": "QSOLKCB/VANILLAJS",
       "commit": "227dd5ee0f2821b8e30a151524830f0a0027cf11",
       "source": "modules/time/index.js",
       "local": "vendor/vanillajs/modules/time/index.js",

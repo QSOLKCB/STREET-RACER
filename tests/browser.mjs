@@ -24,6 +24,9 @@ const server=http.createServer(async(req,res)=>{
 const receipt={status:'RUNNING',environment:'isolated hosted/headless Chromium',checks:[],errors:[],httpFailures:[],externalRequests:[],screenshots:[],limits:'Browser clock advances genuine RAF and user-input processing. Touch is emulated; no physical-device, human-listening or hardware-speed claim.'};
 let browser,context,page,url,origin,current='launch',racePicture,backup;
 const action=(name,p=page)=>p.locator(`[data-action="${name}"]:visible`);
+// Software-rendered WebGL can starve the real animation frames Playwright's stability
+// check waits on; fall back to a synthetic click on the same visible control.
+async function press(name,p=page){try{await action(name,p).click({timeout:5000});}catch{await action(name,p).dispatchEvent('click');}}
 const nav=(name,p=page)=>p.locator(`#navigation [data-view="${name}"]`);
 const snap=(p=page)=>p.evaluate(()=>globalThis.__streetRacer);
 const resources=state=>JSON.stringify({cash:state.cash,rep:state.rep,cars:state.cars,wins:state.wins,losses:state.losses,day:state.day,defeated:state.defeated});
@@ -65,7 +68,10 @@ async function importCareer(text,p=page){
 try{
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   url=`http://127.0.0.1:${server.address().port}/STREET-RACER/`;origin=new URL(url).origin;
-  browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE||undefined,args:['--no-sandbox']});
+  // SwiftShader WebGL keeps the 3D side events testable on hosted runners without a GPU;
+  // compositing stays on the normal headless path. Canvas2D stays software-rasterized so
+  // repeated draws remain pixel-identical.
+  browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--disable-accelerated-2d-canvas']});
   receipt.browser=browser.version();
   context=await browser.newContext({viewport:{width:1440,height:1000},deviceScaleFactor:1.25,reducedMotion:'reduce',acceptDownloads:true});
   page=await openPage(context);
@@ -155,8 +161,11 @@ try{
     await page.keyboard.press('Escape');const paused=await snap();assert.equal(paused.paused,true);assert.equal(paused.input.throttle,0);
     await advance(2000);assert.deepEqual((await snap()).race,paused.race);
     await page.keyboard.up('w');await action('resume').click();await advance(300);assert.equal((await snap()).input.throttle,0);
-    await action('fullscreen').click();await advance(100);
-    assert.ok(await page.evaluate(()=>Boolean(document.fullscreenElement)||/fullscreen/i.test(document.querySelector('#toast').textContent)));
+    await action('fullscreen').click();
+    // The fullscreen promise settles on the browser's own schedule, not the installed clock.
+    let fullscreenOutcome=false;
+    for(let attempt=0;attempt<50&&!fullscreenOutcome;attempt++){await advance(100);await new Promise(resolve=>setTimeout(resolve,100));fullscreenOutcome=await page.evaluate(()=>Boolean(document.fullscreenElement)||/fullscreen/i.test(document.querySelector('#toast').textContent));}
+    assert.ok(fullscreenOutcome,'fullscreen either engaged or reported as unavailable');
     if((await snap()).paused)await action('resume').click();
     await page.keyboard.press('r');assert.equal((await snap()).race.status,'countdown');assert.equal((await snap()).race.player.distance,0);
     await retire();assert.equal(resources((await snap()).career),before);
@@ -173,6 +182,38 @@ try{
       await page.evaluate(()=>window.dispatchEvent(new Event('blur')));const paused=await snap();assert.equal(paused.paused,true);
       await advance(1500);assert.deepEqual((await snap()).race,paused.race);await retire();assert.equal(resources((await snap()).career),before);
     }
+  });
+  await check('arcade-five-side-events-drive-pause-export-and-career-isolation',async()=>{
+    const before=resources((await snap()).career);receipt.arcade=[];
+    await nav('arcade').click();await page.waitForSelector('[data-action="arcade-launch"][data-mode="stunt"]');
+    for(const mode of ['retro','circuit','derby','ball','stunt']){
+      await page.locator(`[data-action="arcade-launch"][data-mode="${mode}"]`).click();
+      await page.waitForFunction(m=>__streetRacer.arcade?.mode===m&&!__streetRacer.arcadePaused,mode);
+      const launched=await snap();assert.equal(launched.arcadeFailure,'',mode);if(mode!=='retro')assert.equal(launched.arcadeScene,true,`${mode} creates a WebGL scene`);
+      await page.keyboard.down('w');await advance(2500);
+      const moving=(await snap()).arcade;assert.ok(Math.abs(moving.player.speed)>5,`${mode} accelerates`);assert.ok(moving.tick>60);
+      await page.keyboard.down('d');await advance(250);await page.keyboard.up('d');await page.keyboard.up('w');
+      if(mode==='retro'){
+        assert.ok((await snap()).arcade.player.x>0,'retro steering moves the car right');
+        const drawn=await page.locator('#arcade-retro').evaluate(c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<d.length;i+=40)if(d[i]+d[i+1]+d[i+2]>120)n++;return n;});
+        assert.ok(drawn>100,'retro canvas has drawn pixels');
+      }else assert.ok(await page.locator('#arcade-three').evaluate(c=>c.width>1&&c.height>1&&!!c.getContext('webgl')),`${mode} allocates a WebGL canvas`);
+      await picture('arcade-'+mode);
+      // Focus loss pauses a side event through the same path as a career race.
+      await page.evaluate(()=>window.dispatchEvent(new Event('blur')));const paused=await snap();assert.equal(paused.arcadePaused,true,`${mode} pauses on blur`);
+      await advance(1000);assert.equal((await snap()).arcade.tick,paused.arcade.tick,'a paused side event does not advance');
+      if(mode==='circuit'){
+        const [download]=await Promise.all([page.waitForEvent('download'),press('arcade-export')]);
+        const run=JSON.parse(await fs.readFile(await download.path(),'utf8'));
+        assert.equal(run.format,'street-racer-arcade-run');assert.equal(run.mode,'circuit');assert.equal(run.step,1/60);assert.ok(run.inputs.length>60);
+        receipt.arcade.push({mode,ticks:run.observation.tick,recordedInputs:run.inputs.length});
+      }else receipt.arcade.push({mode,ticks:paused.arcade.tick});
+      await press('resume');await page.waitForFunction(()=>!__streetRacer.arcadePaused);
+      await page.keyboard.press('Escape');await page.waitForFunction(()=>__streetRacer.arcadePaused);
+      await press('arcade-exit');await page.waitForFunction(()=>!__streetRacer.arcade);
+    }
+    assert.equal(resources((await snap()).career),before,'side events never change the career');
+    assert.equal((await snap()).view,'arcade');
   });
   await check('pink-slip-consent-loss-and-workshop-recovery',async()=>{
     await nav('meet').click();await page.locator('input[name="course"][value="foundry"]').check();
@@ -249,7 +290,7 @@ try{
   });
   assert.deepEqual(receipt.errors,[],'page errors');assert.deepEqual(receipt.httpFailures,[],'HTTP failures');assert.deepEqual(receipt.externalRequests,[],'external runtime requests');
   receipt.sourceHashes={};
-  for(const file of ['index.html','style.css','js/app.js','js/core.js','js/catalog.js','js/render.js','js/audio.js','js/ui.js','sw.js'])receipt.sourceHashes[file]=createHash('sha256').update(await fs.readFile(path.join(stage,file))).digest('hex');
+  for(const file of ['index.html','style.css','js/app.js','js/core.js','js/catalog.js','js/render.js','js/audio.js','js/ui.js','js/arcade.js','js/arcade-geometry.js','js/arcade-render.js','sw.js'])receipt.sourceHashes[file]=createHash('sha256').update(await fs.readFile(path.join(stage,file))).digest('hex');
   receipt.status='PASS';receipt.completedChecks=receipt.checks.length;console.log(`PASS: ${receipt.checks.length} STREET-RACER browser checks.`);
 }catch(error){
   receipt.status='FAIL';receipt.failedCheck=current;receipt.failure=error.stack||String(error);console.error(error);
