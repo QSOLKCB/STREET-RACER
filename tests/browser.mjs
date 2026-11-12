@@ -157,8 +157,11 @@ try{
     await page.keyboard.press('Escape');const paused=await snap();assert.equal(paused.paused,true);assert.equal(paused.input.throttle,0);
     await advance(2000);assert.deepEqual((await snap()).race,paused.race);
     await page.keyboard.up('w');await action('resume').click();await advance(300);assert.equal((await snap()).input.throttle,0);
-    await action('fullscreen').click();await advance(100);
-    assert.ok(await page.evaluate(()=>Boolean(document.fullscreenElement)||/fullscreen/i.test(document.querySelector('#toast').textContent)));
+    await action('fullscreen').click();
+    // The fullscreen promise settles on the browser's own schedule, not the installed clock.
+    let fullscreenOutcome=false;
+    for(let attempt=0;attempt<50&&!fullscreenOutcome;attempt++){await advance(100);await new Promise(resolve=>setTimeout(resolve,100));fullscreenOutcome=await page.evaluate(()=>Boolean(document.fullscreenElement)||/fullscreen/i.test(document.querySelector('#toast').textContent));}
+    assert.ok(fullscreenOutcome,'fullscreen either engaged or reported as unavailable');
     if((await snap()).paused)await action('resume').click();
     await page.keyboard.press('r');assert.equal((await snap()).race.status,'countdown');assert.equal((await snap()).race.player.distance,0);
     await retire();assert.equal(resources((await snap()).career),before);
