@@ -6,10 +6,13 @@ import { createAudio } from './audio.js';
 import { FixedClock } from '../vendor/vanillajs/modules/time/index.js';
 import '../vendor/games/shared/qsol-input.js';
 import * as UI from './ui.js';
+import { createArcade, stepArcade, arcadeTelemetry, MODES as ARCADE_MODES, ARCADE_STEP, OBJECTIVES } from './arcade.js';
+import { drawRetro, createScene, drawScene, disposeScene } from './arcade-render.js';
+import { paintToRgb } from './arcade-geometry.js';
 
 const $ = selector => document.querySelector(selector);
 const SAVE_KEY = 'street-racer.career.v1', PREF_KEY = 'street-racer.preferences.v1', REJECTED_KEY = 'street-racer.rejected.v1';
-const main = $('#main'), dialog = $('#dialog'), raceScreen = $('#race-screen');
+const main = $('#main'), dialog = $('#dialog'), raceScreen = $('#race-screen'), arcadeScreen = $('#arcade-screen');
 const defaults = {volume:.42, sound:false, transmission:'auto', contrast:false};
 let preferences = {...defaults}, career = createCareer(), storageOK = true, loadMessage = '', rejectedSave = '';
 try {
@@ -32,6 +35,7 @@ if(!rejectedSave){try{rejectedSave=localStorage.getItem(REJECTED_KEY)||'';}catch
 const audio = createAudio();
 audio.setVolume(preferences.volume);
 const clock = new FixedClock({step:1/60,maxFrame:.1,maxSteps:6,snapTolerance:.0005});
+const arcadeClock = new FixedClock({step:ARCADE_STEP,maxFrame:.1,maxSteps:8,snapTolerance:.0005});
 const {GamepadReader,BUTTON,AXIS} = globalThis.QsolInput;
 const pad = new GamepadReader();
 const ui = {view:'garage',courseId:COURSES[0].id};
@@ -40,7 +44,8 @@ let previousGear = 1, previousCountdown = 4, previousStatus = '', lastEvent = ''
 let toastTimer = 0, drawPending = false, activeDialog = '', challengeId = '', pendingImport = null, raceCashBefore = 0;
 let dialogGeneration = 0;
 const keys = new Set(), pointers = new Map();
-let shiftUp = false, shiftDown = false;
+let shiftUp = false, shiftDown = false, steerRamp = 0;
+let arcade = null, arcadeMode = 'retro', arcadePaused = false, arcadeScene = null, arcadeReplay = [], arcadeInput = {}, arcadeFailure = '', lastArcadePaint = 0;
 
 function toast(message,error=false) {
   clearTimeout(toastTimer); const target = $('#toast');
@@ -56,7 +61,7 @@ function saveCareer() {
   catch { if(storageOK)toast('Local storage is full or unavailable. Export your career in Save / load.',true);storageOK=false;$('#save-status').textContent='EXPORT YOUR CAREER TO KEEP IT'; }
 }
 function setView(view,focus=true) {
-  if(race || !['garage','classifieds','parts','meet','logbook'].includes(view))return;
+  if(race || arcade || !['garage','classifieds','parts','meet','logbook','arcade'].includes(view))return;
   ui.view=view;render();
   if(focus){main.focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
 }
@@ -65,7 +70,7 @@ function render() {
   for(const button of document.querySelectorAll('#navigation [data-view]')){
     if(button.dataset.view===ui.view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
   }
-  const views={garage:UI.garage,classifieds:UI.classifieds,parts:UI.parts,meet:UI.meet,logbook:UI.logbook};
+  const views={garage:UI.garage,classifieds:UI.classifieds,parts:UI.parts,meet:UI.meet,logbook:UI.logbook,arcade:UI.arcade};
   main.innerHTML=(loadMessage?`<div class="notice">${UI.esc(loadMessage)} <button class="text-button" data-action="save-menu">Save / load ↗</button></div>`:'')+views[ui.view](career,ui);
   updateSoundButton();queueDraw();
 }
@@ -79,7 +84,7 @@ function drawMenus(){
   }
 }
 function runAction(action){
-  if(race)return false;
+  if(race||arcade)return false;
   const result=applyAction(career,action);
   if(!result.ok){toast(result.message,true);return false;}
   career=result.state;saveCareer();render();toast(result.message);
@@ -133,7 +138,16 @@ function launchChallenge(){
   }else beginRace(options);
 }
 
-function clearInput(){keys.clear();pointers.clear();shiftUp=false;shiftDown=false;lastInput={throttle:0,brake:0,steer:0};pad.reset();for(const el of raceScreen.querySelectorAll('[data-held]'))el.removeAttribute('data-held');}
+function clearInput(){keys.clear();pointers.clear();shiftUp=false;shiftDown=false;steerRamp=0;arcadeInput={};lastInput={throttle:0,brake:0,steer:0};pad.reset();for(const el of document.querySelectorAll('.race-screen [data-held]'))el.removeAttribute('data-held');}
+// Digital steering (keys and touch) ramps in over about 0.14 s and releases in
+// 0.07 s so a tap nudges the car instead of snapping it. Analog sticks bypass it.
+function rampSteer(target,dt){
+  const reversing=target!==0&&steerRamp!==0&&Math.sign(target)!==Math.sign(steerRamp);
+  const rate=Math.max(0,dt)/(target===0?.07:reversing?.09:.14);
+  steerRamp+=Math.max(-rate,Math.min(rate,target-steerRamp));
+  if(Math.abs(steerRamp)<1e-4)steerRamp=0;
+  return steerRamp;
+}
 function beginRace(options){
   const result=startRace(career,options);if(!result.ok){toast(result.message,true);return;}
   if(dialog.open)closeDialog();
@@ -181,6 +195,102 @@ function exitRace(view='garage'){
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
   setView(view);
 }
+// ---------------------------------------------------------------------------
+// Arcade side events: stake-free runs that never touch the career.
+const ARCADE_TITLES={retro:['Horizon Tour','FOUR STAGES · 6,000 M'],circuit:['Vector Ring','FIVE LAPS · EIGHT GATES'],derby:['Impact Arena','FIVE KNOCKOUTS'],ball:['Boost Pitch','FIRST TO FIVE GOALS'],stunt:['Skyline Span','THREE ELEVATED LAPS']};
+function arcadeProgress(w){
+  const p=w.player;
+  if(w.mode==='retro')return `STAGE ${p.lap+1} / ${OBJECTIVES.retro.stages} · ${Math.floor(w.distance)} M`;
+  if(w.mode==='circuit')return `LAP ${p.lap} / ${OBJECTIVES.circuit.laps} · GATE ${p.checkpoint+1}`;
+  if(w.mode==='stunt')return `LAP ${p.lap} / ${OBJECTIVES.stunt.laps} · ${Math.max(0,Math.floor(-p.z))} M`;
+  if(w.mode==='derby')return `${p.knockouts} / ${OBJECTIVES.derby.knockouts} KO`;
+  return `${w.score[0]} : ${w.score[1]} · FIRST TO ${OBJECTIVES.ball.goals}`;
+}
+function arcadePlayerPaint(){const car=getActiveCar(career);return car?car.color:'';}
+function beginArcade(mode){
+  if(race||!ARCADE_MODES.includes(mode))return;
+  if(dialog.open)closeDialog();
+  arcadeMode=mode;arcade=createArcade(mode);arcadeReplay=[];arcadePaused=false;arcadeFailure='';clearInput();
+  arcadeClock.reset();arcadeClock.setPaused(false);lastFrame=0;lastArcadePaint=0;
+  const [title,objective]=ARCADE_TITLES[mode],retro=mode==='retro';
+  $('#toast').hidden=true;$('.shell').inert=true;arcadeScreen.hidden=false;document.body.style.overflow='hidden';
+  arcadeScreen.innerHTML=`<canvas id="arcade-retro" role="img" aria-label="Pseudo-3D arcade highway" ${retro?'':'hidden'}></canvas><canvas id="arcade-three" role="img" aria-label="Low-poly 3D arcade arena" ${retro?'hidden':''}></canvas><div class="race-top"><div class="race-label"><h2>${UI.esc(title)}</h2><p>SIDE EVENT · ${objective}</p></div><div class="race-top-buttons"><button data-action="sound" data-race-sound aria-label="Turn race sound on">♪</button><button data-action="fullscreen" aria-label="Toggle arcade fullscreen">⛶ <span class="full-label">Fullscreen</span></button><button data-action="pause" aria-label="Pause run">Ⅱ Pause</button></div></div><div class="arcade-event" id="arcade-event" aria-live="polite">READY · GO</div><div class="race-hud arcade-hud"><div class="speed-block"><span class="speed" id="arcade-speed">0</span><span class="units">KM/H</span><div class="rpm-track"><span id="arcade-boost-bar" style="width:100%"></span></div><div class="gear-block"><span>BOOST <strong id="arcade-boost">100%</strong></span><span id="arcade-status">RUNNING</span></div></div><div class="race-telemetry"><div><small>TIME</small><span id="arcade-time">0:00.00</span></div><div><small>BODY</small><span id="arcade-health">100%</span></div><div><small>PROGRESS</small><span id="arcade-progress">${arcadeProgress(arcade)}</span></div><div><small>CONTACTS</small><span id="arcade-contacts">0</span></div></div></div><div class="drive-controls arcade-controls"><div class="control-group steer-controls"><button data-control="left" aria-label="Steer left">←<small>A / ←</small></button><button data-control="right" aria-label="Steer right">→<small>D / →</small></button></div><div><div class="drive-hint" id="arcade-hint">${retro?'W / ↑ ACCELERATE · A D STEER · SHIFT BOOST · ESC PAUSE':'WASD DRIVE · SHIFT BOOST · SPACE JUMP · X DRIFT · F FLIP · ESC PAUSE'}</div><div class="control-group shift-controls">${retro?'':'<button data-control="jump" aria-label="Jump">JUMP<small>SPACE</small></button><button data-control="drift" aria-label="Drift">DRIFT<small>X</small></button><button data-control="flip" aria-label="Flip">FLIP<small>F</small></button>'}<button data-control="boost" aria-label="Boost">BOOST<small>SHIFT</small></button></div></div><div class="control-group pedal-controls"><button data-control="brake" aria-label="Brake or reverse">BRAKE<small>S / ↓</small></button><button data-control="throttle" aria-label="Accelerate">THROTTLE<small>W / ↑</small></button></div></div><div class="pause-overlay" id="arcade-pause" hidden><div class="pause-panel"><div class="eyebrow">SIDE EVENT PAUSED</div><h2>Run paused.</h2><p>The clock is stopped and your controls are released. Nothing here changes your career.</p><div class="stack"><button class="primary" data-action="resume">Back behind the wheel →</button><button data-action="restart">Restart this run</button><button data-action="arcade-export">Download run JSON ↓</button><button class="danger" data-action="arcade-exit">Back to the garage</button></div></div></div>`;
+  if(!retro){
+    const three=$('#arcade-three');
+    three.addEventListener('webglcontextlost',event=>{event.preventDefault();arcadeFailure='GPU context lost. Restart the run to rebuild the scene.';pauseArcade();toast(arcadeFailure,true);});
+    try{disposeScene(arcadeScene);arcadeScene=createScene(three,mode,arcade,paintToRgb(arcadePlayerPaint()));}
+    catch(error){arcadeScene=null;arcadeFailure=error.message||'WebGL is unavailable.';toast(`3D is unavailable here: ${arcadeFailure} Horizon Tour runs without WebGL.`,true);}
+  }
+  audio.setScene('race');audio.resume().catch(()=>{});updateSoundButton();paintArcade();
+  arcadeScreen.querySelector('[data-action=pause]').focus({preventScroll:true});
+}
+function pauseArcade(){
+  if(!arcade||arcade.finished||arcadePaused)return;
+  arcadePaused=true;arcadeClock.setPaused(true);clearInput();
+  $('#arcade-pause').hidden=false;audio.suspend().catch(()=>{});paintArcade();
+  if(!dialog.open)arcadeScreen.querySelector('[data-action=resume]').focus({preventScroll:true});
+}
+function resumeArcade(){
+  if(!arcade||arcade.finished||dialog.open)return;
+  arcadePaused=false;clearInput();arcadeClock.setPaused(false);lastFrame=0;
+  $('#arcade-pause').hidden=true;audio.resume().catch(()=>{});paintArcade();
+  arcadeScreen.querySelector('[data-action=pause]').focus({preventScroll:true});
+}
+function exitArcade(){
+  if(dialog.open)closeDialog();
+  disposeScene(arcadeScene);arcadeScene=null;arcade=null;arcadePaused=false;arcadeReplay=[];
+  arcadeScreen.hidden=true;arcadeScreen.innerHTML='';clearInput();arcadeClock.reset();
+  $('.shell').inert=false;document.body.style.overflow='';audio.setScene('garage');audio.resume().catch(()=>{});
+  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+  setView('arcade');
+}
+function exportArcade(){
+  if(!arcade)return;
+  const p=arcade.player;
+  download(`street-racer-arcade-${arcade.mode}-run.json`,JSON.stringify({format:'street-racer-arcade-run',version:1,mode:arcade.mode,step:ARCADE_STEP,inputs:arcadeReplay,
+    observation:{tick:arcade.tick,elapsed:arcade.elapsed,finished:arcade.finished,won:arcade.won,result:arcade.result,position:{x:p.x,y:p.y,z:p.z},health:p.health,contacts:arcade.contacts,score:arcade.score,knockouts:p.knockouts,distance:arcade.distance}},null,2)+'\n');
+  toast('Run exported. Inputs are recorded per simulation tick.');
+}
+function arcadeEvent(text){
+  setText('arcade-event',text);
+  if(/CONTACT|IMPACT|FALL|LANDING|OFF ROAD/.test(text))audio.cue('crash');
+  else if(/DISABLED|YOU SCORED/.test(text))audio.cue('upgrade');
+  else if(/LAP|STAGE|GOAL/.test(text))audio.cue('start');
+}
+function finishArcade(){
+  if(!arcade||!arcade.finished||activeDialog==='arcade-result')return;
+  arcadeClock.setPaused(true);clearInput();paintArcade();
+  audio.cue(arcade.won?'win':'lose');
+  const [title]=ARCADE_TITLES[arcade.mode];
+  showDialog(arcade.won?'That’s a run to remember.':'There’s always another night.',`<div class="result-flag">${arcade.won?'SIDE EVENT CLEARED':'RUN OVER'}</div><div class="result-title">${UI.esc(arcade.result)}</div><p style="margin-top:18px">${UI.esc(title)} · no stakes, no wear, no cash. Your career is unchanged.</p><div class="result-grid"><div><span>TIME</span><strong>${UI.time(arcade.elapsed)}</strong></div><div><span>PROGRESS</span><strong style="font-size:14px">${UI.esc(arcadeProgress(arcade))}</strong></div><div><span>BODY</span><strong>${Math.round(arcade.player.health)}%</strong></div><div><span>CONTACTS</span><strong>${arcade.contacts}</strong></div></div><div class="dialog-actions"><button data-action="arcade-export">Run JSON ↓</button><button data-action="arcade-exit">Back to the garage</button><button class="primary" data-action="restart">Race again ↻</button></div>`,'arcade-result');
+}
+function paintArcade(){
+  if(!arcade)return;
+  const p=arcade.player;let ok=false;
+  if(arcade.mode==='retro')ok=drawRetro($('#arcade-retro'),arcade,{playerColor:arcadePlayerPaint()});
+  else if(arcadeScene){try{ok=drawScene(arcadeScene,arcade);}catch(error){arcadeFailure=error.message||'WebGL failed.';disposeScene(arcadeScene);arcadeScene=null;}}
+  setText('arcade-speed',Math.round(Math.abs(p.speed)*3.6));
+  $('#arcade-boost-bar').style.width=Math.round(p.boost)+'%';
+  setText('arcade-boost',Math.round(p.boost)+'%');
+  setText('arcade-status',arcade.finished?'FINISHED':arcadePaused?'PAUSED':'RUNNING');
+  setText('arcade-time',UI.time(arcade.elapsed));setText('arcade-health',Math.round(p.health)+'%');
+  setText('arcade-progress',arcadeProgress(arcade));setText('arcade-contacts',arcade.contacts);
+  if(!ok)setText('arcade-hint',arcade.mode==='retro'?'CANVAS UNAVAILABLE · INSTRUMENTS AND PAUSE REMAIN':`3D UNAVAILABLE · ${(arcadeFailure||'WebGL is unavailable.').toUpperCase()} · INSTRUMENTS AND PAUSE REMAIN`);
+  const i=arcadeInput;
+  const held={left:i.steer<0,right:i.steer>0,throttle:i.throttle>0,brake:i.throttle<0,boost:i.boost,jump:i.jump,drift:i.handbrake,flip:i.flip};
+  for(const el of arcadeScreen.querySelectorAll('[data-control]')){const value=String(Boolean(held[el.dataset.control]));if(el.dataset.held!==value)el.dataset.held=value;}
+}
+function sampleArcadeInput(dt){
+  const held=name=>[...pointers.values()].includes(name),key=(...codes)=>codes.some(code=>keys.has(code));
+  const retro=arcade.mode==='retro',axis=pad.axis(AXIS.LX);
+  rampSteer((key('ArrowRight','KeyD')||held('right')?1:0)-(key('ArrowLeft','KeyA')||held('left')?1:0),dt);
+  return {throttle:Math.max(key('ArrowUp','KeyW')||held('throttle')?1:0,pad.value(BUTTON.RT))-Math.max(key('ArrowDown','KeyS')||held('brake')||(retro&&key('Space'))?1:0,pad.value(BUTTON.LT)),
+    steer:Math.abs(axis)>Math.abs(steerRamp)?axis:steerRamp,
+    boost:key('ShiftLeft','ShiftRight')||held('boost')||pad.held(BUTTON.RB)||pad.held(BUTTON.LB),
+    handbrake:key('KeyX')||held('drift')||pad.held(BUTTON.WEST),
+    jump:!retro&&(key('Space')||held('jump')||pad.held(BUTTON.SOUTH)),
+    flip:key('KeyF')||held('flip')||pad.held(BUTTON.NORTH)};
+}
 function setText(id,value){const el=document.getElementById(id);if(el&&el.textContent!==String(value))el.textContent=String(value);}
 function paintRace(){
   if(!race)return;
@@ -204,19 +314,27 @@ function paintRace(){
     const value=String(Boolean(held));if(el.dataset.held!==value)el.dataset.held=value;
   }
 }
-function sampleInput(){
+function sampleInput(dt){
   const held=name=>[...pointers.values()].includes(name);
-  const axis=pad.axis(AXIS.LX),keyboard=(keys.has('ArrowRight')||keys.has('KeyD')||held('right')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')||held('left')?1:0);
+  const axis=pad.axis(AXIS.LX),keyboard=rampSteer((keys.has('ArrowRight')||keys.has('KeyD')||held('right')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')||held('left')?1:0),dt);
   shiftUp ||= pad.pressed(BUTTON.RB);shiftDown ||= pad.pressed(BUTTON.LB);
-  return {throttle:Math.max(keys.has('ArrowUp')||keys.has('KeyW')||held('throttle')?1:0,pad.value(BUTTON.RT)),brake:Math.max(keys.has('ArrowDown')||keys.has('KeyS')||keys.has('Space')||held('brake')?1:0,pad.value(BUTTON.LT)),steer:Math.abs(keyboard)>Math.abs(axis)?keyboard:axis,shiftUp,shiftDown};
+  return {throttle:Math.max(keys.has('ArrowUp')||keys.has('KeyW')||held('throttle')?1:0,pad.value(BUTTON.RT)),brake:Math.max(keys.has('ArrowDown')||keys.has('KeyS')||keys.has('Space')||held('brake')?1:0,pad.value(BUTTON.LT)),steer:Math.abs(axis)>Math.abs(keyboard)?axis:keyboard,shiftUp,shiftDown};
 }
 function frame(timestamp){
   const dt=lastFrame?Math.max(0,(timestamp-lastFrame)/1000):0;lastFrame=timestamp;
   pad.poll();
   if(race&&!paused&&!raceSettled&&pad.lost){pauseRace();toast('Controller disconnected. The run is paused; reconnect or use the keyboard or touch controls.');}
+  if(arcade&&!arcadePaused&&!arcade.finished&&pad.lost){pauseArcade();toast('Controller disconnected. The run is paused; reconnect or use the keyboard or touch controls.');}
   if(race&&!dialog.open&&pad.pressed(BUTTON.START)){if(paused)resumeRace();else pauseRace();}
+  if(arcade&&!dialog.open&&pad.pressed(BUTTON.START)){if(arcadePaused)resumeArcade();else pauseArcade();}
+  if(arcade&&!arcadePaused&&!arcade.finished&&!dialog.open){
+    const input=sampleArcadeInput(dt);arcadeInput=input;lastInput={throttle:Math.max(0,input.throttle),brake:Math.max(0,-input.throttle),steer:input.steer};
+    arcadeClock.advance(dt,step=>{arcadeReplay.push({...input});if(arcadeReplay.length>36000)arcadeReplay.shift();stepArcade(arcade,input,step);if(arcade.event)arcadeEvent(arcade.event);});
+    if(timestamp-lastArcadePaint>=1000/60-.5){paintArcade();lastArcadePaint=timestamp;}
+    if(arcade.finished)finishArcade();
+  }
   if(race&&!paused&&!raceSettled&&!dialog.open){
-    const input=sampleInput();lastInput=input;
+    const input=sampleInput(dt);lastInput=input;
     clock.advance(dt,step=>{stepRace(race,input,step);shiftUp=false;shiftDown=false;input.shiftUp=false;input.shiftDown=false;});
     if(race.player.gear!==previousGear){audio.cue('shift');previousGear=race.player.gear;}
     const countdown=Math.ceil(race.countdown);
@@ -228,17 +346,20 @@ function frame(timestamp){
     if(timestamp-lastPaint>=1000/60-.5){paintRace();lastPaint=timestamp;}
     if(race.status==='finished')finishRace();
   }
-  if(!document.hidden&&!paused)audio.update(raceSettled?null:race);
+  if(!document.hidden&&!paused&&!arcadePaused)audio.update(race?(raceSettled?null:race):arcade&&!arcade.finished?arcadeTelemetry(arcade,arcadeInput):null);
   requestAnimationFrame(frame);
 }
 
 async function handleAction(button){
   const action=button.dataset.action;
-  if(action==='close'){if(activeDialog==='result')exitRace('garage');else closeDialog();return;}
+  if(action==='close'){if(activeDialog==='result')exitRace('garage');else if(activeDialog==='arcade-result')exitArcade();else closeDialog();return;}
   if(action==='sound'){await soundEnabled(!audio.state.enabled);return;}
-  if(action==='settings'){if(!race)settings();return;}
+  if(action==='settings'){if(!race&&!arcade)settings();return;}
   if(action==='help'){showDialog('Driver’s handbook',UI.help,'help');return;}
-  if(action==='save-menu'){if(!race)saveMenu();return;}
+  if(action==='save-menu'){if(!race&&!arcade)saveMenu();return;}
+  if(action==='arcade-launch'){beginArcade(button.dataset.mode);return;}
+  if(action==='arcade-exit'){exitArcade();return;}
+  if(action==='arcade-export'){exportArcade();return;}
   if(action==='export'){download(`street-racer-day-${career.day}.json`,serializeSave(career));toast('Career exported. Keep it somewhere safe.');return;}
   if(action==='export-rejected'){download('street-racer-unreadable-save.json',rejectedSave);return;}
   if(action==='import'){$('#import-file').value='';$('#import-file').click();return;}
@@ -263,9 +384,9 @@ async function handleAction(button){
   if(action==='race-launch'){launchChallenge();return;}
   if(action==='pink-back'){challenge(challengeId);return;}
   if(action==='pink-confirm'){beginRace(raceOptions);return;}
-  if(action==='pause'){pauseRace();return;}
-  if(action==='resume'){resumeRace();return;}
-  if(action==='restart'){if(race&&!raceSettled)beginRace(raceOptions);return;}
+  if(action==='pause'){if(arcade)pauseArcade();else pauseRace();return;}
+  if(action==='resume'){if(arcade)resumeArcade();else resumeRace();return;}
+  if(action==='restart'){if(arcade)beginArcade(arcadeMode);else if(race&&!raceSettled)beginRace(raceOptions);return;}
   if(action==='retire'){retireDialog();return;}
   if(action==='retire-confirm'){closeDialog();forfeitRace(race);paused=false;finishRace();return;}
   if(action==='race-exit'){exitRace('garage');return;}
@@ -274,7 +395,8 @@ async function handleAction(button){
   if(action==='shift-up'){shiftUp=true;return;}
   if(action==='shift-down'){shiftDown=true;return;}
   if(action==='fullscreen'){
-    try{if(document.fullscreenElement)await document.exitFullscreen();else if(raceScreen.requestFullscreen)await raceScreen.requestFullscreen();else toast('Fullscreen is unavailable in this browser.');}
+    const screen=arcade?arcadeScreen:raceScreen;
+    try{if(document.fullscreenElement)await document.exitFullscreen();else if(screen.requestFullscreen)await screen.requestFullscreen();else toast('Fullscreen is unavailable in this browser.');}
     catch{toast('Fullscreen was not available. The race still works in this window.');}queueDraw();
   }
 }
@@ -307,49 +429,55 @@ $('#import-file').addEventListener('change',async event=>{
     const imported=parseSave(await file.text());
     // The input may complete after a different dialog was opened; keep the
     // current career intact and require the explicit import confirmation.
-    if(race||generation!==dialogGeneration){toast('Import cancelled because you moved to another screen. Choose the file again when ready.');return;}
+    if(race||arcade||generation!==dialogGeneration){toast('Import cancelled because you moved to another screen. Choose the file again when ready.');return;}
     pendingImport=imported;
     showDialog('Bring this garage home?',`<p>This replaces the career on this device with the imported garage.</p><div class="result-grid"><div><span>CASH</span><strong>${UI.money(imported.cash)}</strong></div><div><span>REPUTATION</span><strong>${imported.rep}</strong></div><div><span>CARS</span><strong>${imported.cars.length} / 4</strong></div><div><span>DAY</span><strong>${imported.day}</strong></div></div><div class="dialog-actions"><button data-action="export">Export current first</button><button data-action="close">Cancel</button><button class="primary" data-action="import-confirm">Import this career</button></div>`,'import');
   }catch(error){toast(`Save rejected: ${error.message} Your current career is unchanged.`,true);}
 });
-dialog.addEventListener('cancel',event=>{event.preventDefault();if(activeDialog==='result')exitRace('garage');else closeDialog();});
+dialog.addEventListener('cancel',event=>{event.preventDefault();if(activeDialog==='result')exitRace('garage');else if(activeDialog==='arcade-result')exitArcade();else closeDialog();});
 
 const drivingKeys=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD','Space','KeyE','KeyQ','Escape','KeyP','KeyR']);
+const arcadeKeys=new Set([...drivingKeys,'ShiftLeft','ShiftRight','KeyX','KeyF']);
 document.addEventListener('keydown',event=>{
-  if(!race&&audio.state.enabled&&!event.metaKey&&!event.ctrlKey&&!event.altKey)audio.resume().catch(()=>{});
-  if(!race||raceSettled||dialog.open||/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)||event.target.isContentEditable)return;
-  if(!drivingKeys.has(event.code))return;
+  if(!race&&!arcade&&audio.state.enabled&&!event.metaKey&&!event.ctrlKey&&!event.altKey)audio.resume().catch(()=>{});
+  const live=race?!raceSettled:Boolean(arcade&&!arcade.finished);
+  if(!live||dialog.open||/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)||event.target.isContentEditable)return;
+  if(!(arcade?arcadeKeys:drivingKeys).has(event.code))return;
   event.preventDefault();
   if(event.code==='Escape'||event.code==='KeyP'){
-    if(!event.repeat){if(paused)resumeRace();else pauseRace();}return;
+    if(!event.repeat){if(arcade){if(arcadePaused)resumeArcade();else pauseArcade();}else if(paused)resumeRace();else pauseRace();}return;
   }
-  if(event.code==='KeyR'){if(!event.repeat)beginRace(raceOptions);return;}
-  if(paused)return;
+  if(event.code==='KeyR'){if(!event.repeat){if(arcade)beginArcade(arcadeMode);else beginRace(raceOptions);}return;}
+  if(arcade?arcadePaused:paused)return;
   keys.add(event.code);
   if(event.code==='KeyE'&&!event.repeat)shiftUp=true;
   if(event.code==='KeyQ'&&!event.repeat)shiftDown=true;
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
-raceScreen.addEventListener('pointerdown',event=>{
-  const button=event.target.closest('[data-control]');
-  if(!button||!race||paused||raceSettled||dialog.open)return;
-  event.preventDefault();pointers.set(event.pointerId,button.dataset.control);
-  try{button.setPointerCapture(event.pointerId);}catch{/* Pointer may already have ended. */}
-});
-for(const type of ['pointerup','pointercancel','lostpointercapture'])raceScreen.addEventListener(type,event=>{pointers.delete(event.pointerId);});
-function focusLost(){clearInput();if(race&&!raceSettled)pauseRace();else audio.suspend().catch(()=>{});}
+for(const screen of [raceScreen,arcadeScreen]){
+  screen.addEventListener('pointerdown',event=>{
+    const button=event.target.closest('[data-control]');
+    const live=screen===raceScreen?race&&!paused&&!raceSettled:arcade&&!arcadePaused&&!arcade.finished;
+    if(!button||!live||dialog.open)return;
+    event.preventDefault();pointers.set(event.pointerId,button.dataset.control);
+    try{button.setPointerCapture(event.pointerId);}catch{/* Pointer may already have ended. */}
+  });
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])screen.addEventListener(type,event=>{pointers.delete(event.pointerId);});
+}
+function focusLost(){clearInput();if(race&&!raceSettled)pauseRace();else if(arcade&&!arcade.finished)pauseArcade();else audio.suspend().catch(()=>{});}
 window.addEventListener('blur',focusLost);
+window.addEventListener('pagehide',focusLost);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)focusLost();});
 // A deliberate interaction resumes menu audio after a focus pause; the race
 // itself remains paused until the driver explicitly presses Resume.
-document.addEventListener('pointerdown',()=>{if(!race&&audio.state.enabled)audio.resume().catch(()=>{});},{passive:true});
+document.addEventListener('pointerdown',()=>{if(!race&&!arcade&&audio.state.enabled)audio.resume().catch(()=>{});},{passive:true});
 window.addEventListener('resize',queueDraw);
 document.addEventListener('fullscreenchange',queueDraw);
 if(typeof ResizeObserver==='function')new ResizeObserver(queueDraw).observe(main);
 window.addEventListener('beforeunload',event=>{if(!storageOK&&career.revision>0){event.preventDefault();event.returnValue='';}});
 
 // Observation only: callers receive copies, never the live career or race.
-Object.defineProperty(globalThis,'__streetRacer',{get:()=>structuredClone({version:'0.1.0',view:ui.view,career,race,paused,input:lastInput,audio:audio.state,preferences,storageOK,clock:{ticks:clock.ticks,accumulator:clock.accumulator}})});
+Object.defineProperty(globalThis,'__streetRacer',{get:()=>structuredClone({version:'0.2.0',view:ui.view,career,race,paused,arcade,arcadePaused,arcadeMode,arcadeScene:Boolean(arcadeScene),arcadeFailure,input:lastInput,audio:audio.state,preferences,storageOK,clock:{ticks:clock.ticks,accumulator:clock.accumulator}})});
 savePreferences();render();
 if(!storageOK)$('#save-status').textContent='EXPORT YOUR CAREER TO KEEP IT';
 requestAnimationFrame(frame);

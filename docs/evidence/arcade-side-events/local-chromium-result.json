@@ -1,0 +1,246 @@
+{
+  "status": "PASS",
+  "environment": "isolated hosted/headless Chromium",
+  "checks": [
+    {
+      "name": "first-garage-and-read-only-observation",
+      "status": "PASS",
+      "elapsedMs": 534
+    },
+    {
+      "name": "eight-classifieds-buy-first-car-and-all-navigation",
+      "status": "PASS",
+      "elapsedMs": 932
+    },
+    {
+      "name": "parts-have-effects-tuning-paint-and-local-save",
+      "status": "PASS",
+      "elapsedMs": 498
+    },
+    {
+      "name": "preferences-and-user-gesture-web-audio",
+      "status": "PASS",
+      "elapsedMs": 611
+    },
+    {
+      "name": "cash-drag-played-through-keyboard-to-finish",
+      "status": "PASS",
+      "elapsedMs": 12318
+    },
+    {
+      "name": "result-is-settled-once-and-service-restores-car",
+      "status": "PASS",
+      "elapsedMs": 734
+    },
+    {
+      "name": "export-invalid-import-cancel-and-confirmed-restore",
+      "status": "PASS",
+      "elapsedMs": 440
+    },
+    {
+      "name": "manual-shifting-pause-release-restart-and-practice-retire",
+      "status": "PASS",
+      "elapsedMs": 4430
+    },
+    {
+      "name": "road-routes-steering-braking-and-focus-loss-pause",
+      "status": "PASS",
+      "elapsedMs": 11684
+    },
+    {
+      "name": "arcade-five-side-events-drive-pause-export-and-career-isolation",
+      "status": "PASS",
+      "elapsedMs": 15038
+    },
+    {
+      "name": "pink-slip-consent-loss-and-workshop-recovery",
+      "status": "PASS",
+      "elapsedMs": 940
+    },
+    {
+      "name": "browser-fractional-dpr-render-repeat-reference-parity",
+      "status": "PASS",
+      "elapsedMs": 167
+    },
+    {
+      "name": "320-and-390-layout-navigation-and-dialogs",
+      "status": "PASS",
+      "elapsedMs": 1160
+    },
+    {
+      "name": "offline-service-worker-reload-career-and-driving",
+      "status": "PASS",
+      "elapsedMs": 3981
+    },
+    {
+      "name": "emulated-touch-hold-release-and-pause",
+      "status": "PASS",
+      "elapsedMs": 3424
+    },
+    {
+      "name": "disabled-storage-still-plays-and-exports",
+      "status": "PASS",
+      "elapsedMs": 337
+    },
+    {
+      "name": "malformed-stored-career-is-preserved-for-recovery",
+      "status": "PASS",
+      "elapsedMs": 334
+    },
+    {
+      "name": "canvas-unavailable-retains-garage-and-race-controls",
+      "status": "PASS",
+      "elapsedMs": 2007
+    }
+  ],
+  "errors": [],
+  "httpFailures": [],
+  "externalRequests": [],
+  "screenshots": [
+    "garage-first-project.png",
+    "car-catalogue.png",
+    "garage-desktop.png",
+    "parts-and-tuning.png",
+    "night-meet.png",
+    "race-results.png",
+    "road-race-coast.png",
+    "road-race-canyon.png",
+    "arcade-retro.png",
+    "arcade-circuit.png",
+    "arcade-derby.png",
+    "arcade-ball.png",
+    "arcade-stunt.png",
+    "garage-320.png",
+    "garage-390.png",
+    "offline-garage.png",
+    "touch-race-paused.png"
+  ],
+  "limits": "Browser clock advances genuine RAF and user-input processing. Touch is emulated; no physical-device, human-listening or hardware-speed claim.",
+  "browser": "158.0.8127.18",
+  "garageCanvas": {
+    "css": [
+      866.625,
+      430
+    ],
+    "deviceDpr": 1.25,
+    "effectiveDpr": 1.25,
+    "backing": [
+      1083,
+      538
+    ],
+    "expected": [
+      1083,
+      538
+    ]
+  },
+  "audio": {
+    "status": "running",
+    "voices": 4,
+    "cachedInstrumentPitches": 1
+  },
+  "firstRace": {
+    "winner": "player",
+    "time": 14.549346728387007,
+    "distance": 402.02885282958715,
+    "gear": 4,
+    "cashGain": 355
+  },
+  "roads": [
+    {
+      "course": "coast",
+      "distance": 44.14035447871542,
+      "steeringObserved": true,
+      "brakingObserved": true
+    },
+    {
+      "course": "canyon",
+      "distance": 43.823798507025806,
+      "steeringObserved": true,
+      "brakingObserved": true
+    }
+  ],
+  "arcade": [
+    {
+      "mode": "retro",
+      "ticks": 175
+    },
+    {
+      "mode": "circuit",
+      "ticks": 283,
+      "recordedInputs": 283
+    },
+    {
+      "mode": "derby",
+      "ticks": 266
+    },
+    {
+      "mode": "ball",
+      "ticks": 280
+    },
+    {
+      "mode": "stunt",
+      "ticks": 234
+    }
+  ],
+  "pixels": [
+    {
+      "kind": "garage",
+      "width": 601,
+      "height": 421,
+      "dpr": 1.25,
+      "backing": [
+        751,
+        526
+      ],
+      "rgba": "identical"
+    },
+    {
+      "kind": "garage",
+      "width": 900,
+      "height": 520,
+      "dpr": 1.25,
+      "backing": [
+        1125,
+        650
+      ],
+      "rgba": "identical"
+    },
+    {
+      "kind": "race",
+      "width": 601,
+      "height": 421,
+      "dpr": 1.25,
+      "backing": [
+        751,
+        526
+      ],
+      "rgba": "identical"
+    },
+    {
+      "kind": "race",
+      "width": 900,
+      "height": 520,
+      "dpr": 1.25,
+      "backing": [
+        1125,
+        650
+      ],
+      "rgba": "identical"
+    }
+  ],
+  "sourceHashes": {
+    "index.html": "333dfc630d25a20cb13dc8e1641c972a12b97752fb79136fa36ffe39da86dd11",
+    "style.css": "e3506b64048c3e3a3261ad501a88fa9863a6369967ec0c56f6d427c6035b92c2",
+    "js/app.js": "4547441f24d06a897a1a3dd5cd50a3a8202795a4c98e4f68341ebd0990f17bd1",
+    "js/core.js": "74b3a7a4b2bdf2ccea3740213f5c4d8d9107c8b29e79adb69b3af043158c26cd",
+    "js/catalog.js": "3deac06ce22ff263a878b7cd052b6c0138625b4a59db9dcfea0f13f61b8b464f",
+    "js/render.js": "f3eaa9eb0d5704666ef30feb08c43778af5a4a1044920d28b16228161c9f82b3",
+    "js/audio.js": "3ba7c9efd8db034e9d3da660f8ab1d20ddb01a26071a511f635b2b1eea281ca8",
+    "js/ui.js": "0929fcfd72cf24a673c8c03ef8af0e078c7132e314437bc498d99057323c05f7",
+    "js/arcade.js": "e5e5d144fec95dda0e97cf52cd73e21b24b6bc5a8c0894465b7d7f4b6521a44d",
+    "js/arcade-geometry.js": "93cd1559b00d379fd91d038bf957176a30abbe6dbcb69f6709c342b0966f63d3",
+    "js/arcade-render.js": "739cd7878fb5251d048c35c06dc833844edea58d688e70358588bbffb85dc502",
+    "sw.js": "e65f08c0d5f3a131206186acf1224da61626b0f7dbe383c3278818e084bfe88f"
+  },
+  "completedChecks": 18
+}
