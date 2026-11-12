@@ -3,7 +3,8 @@
 export const MODES = Object.freeze({
   supercar: Object.freeze({id:'supercar',title:'VELOCITY II',subtitle:'The Supercar Tour',kind:'circuit',laps:3,courseMeters:2200,defaultTrack:'alpine',rivals:5,traffic:true,combat:false}),
   coast: Object.freeze({id:'coast',title:'COAST RUN',subtitle:'The Endless Summer',kind:'checkpoint',laps:1,courseMeters:5200,defaultTrack:'coast',rivals:6,traffic:true,combat:false}),
-  wasteland: Object.freeze({id:'wasteland',title:'OUTLAND ROAD',subtitle:'Road Wars',kind:'combat',laps:2,courseMeters:2500,defaultTrack:'desert',rivals:7,traffic:true,combat:true})
+  wasteland: Object.freeze({id:'wasteland',title:'OUTLAND ROAD',subtitle:'Road Wars',kind:'combat',laps:2,courseMeters:2500,defaultTrack:'desert',rivals:7,traffic:true,combat:true}),
+  sprint: Object.freeze({id:'sprint',title:'COASTAL SPRINT 3D',subtitle:'Sapphire Rush',kind:'sprint',laps:1,courseMeters:3600,defaultTrack:'coast',rivals:4,traffic:true,combat:false})
 });
 export const TRACKS = Object.freeze({
   alpine: Object.freeze({id:'alpine',name:'Alpine Pass',sky:'#739bb6',horizon:'#b5c9c7',mountain:'#667e88',mountain2:'#9cabae',ground:'#527256',grass:'#527256',grass2:'#42634d',road:'#555b63',road2:'#60656b',rumble:'#dce1df',stripe:'#d7cf87',curve:1.2,hills:1.3}),

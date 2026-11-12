@@ -2,6 +2,8 @@
 // Integer Q16.16 race core. Fixed 60 Hz steps; no DOM, wall clock, or randomness in tick().
 import {seededRandom} from '../../vendor/vanillajs/modules/math/index.js';
 import {modeSettings} from './config.js';
+import {TOUR_STAGE_METERS,TOUR_STAGES,sweptLongitudinalContact,
+  SPRINT_OFFROAD_LANE,SPRINT_FINISH_LANE} from './course.js';
 export const Q=65536, HZ=60;
 export const q=n=>Math.round(n*Q);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
@@ -18,7 +20,7 @@ export function createRace({mode='supercar',track,car,seed=2026}={}){
     distanceQ:0,speedQ:0,laneQ:0,laneVQ:0,health:100,boost:600,
     nitro:0,ammo:m.combat?12:0,shots:0,knockouts:0,collisionCooldown:0,shotCooldown:0,
     checkpoints:0,timeLeft:m.kind==='checkpoint'?90*HZ:null,lap:1,position:m.rivals+1,
-    score:0,rivals,lastEvent:'',events:[]};
+    score:0,rivals,lastEvent:'',events:[],route:[]};
 }
 export const distanceMeters=s=>s.distanceQ/Q;
 export const speedKph=s=>Math.round(s.speedQ/Q*3.6);
@@ -42,9 +44,13 @@ export function tickRace(s,input={}){
   const emit=message=>{s.lastEvent=message;s.events.push(message);};
   if(s.collisionCooldown>0)s.collisionCooldown--;
   if(s.shotCooldown>0)s.shotCooldown--;
-  const offroad=Math.abs(s.laneQ)>q(1);
+  const offroad=Math.abs(s.laneQ)>q(mode.kind==='sprint'?SPRINT_OFFROAD_LANE:1);
   const acceleration=(go?car.acceleration:-8)-(brake?39:0)-(offroad?30:0)+(useBoost?29:0);
-  s.speedQ=clamp(s.speedQ+Math.trunc(acceleration*Q/HZ),0,q(offroad?52:car.speed));
+  // RACING-002 nitro: speed exceeds the normal cap while burning fuel.
+  // On release it bleeds off across ticks instead of snapping downward.
+  const cap=offroad?q(52):useBoost?q(car.speed*1.32):
+    Math.max(q(car.speed),s.speedQ-Math.trunc(30*Q/HZ));
+  s.speedQ=clamp(s.speedQ+Math.trunc(acceleration*Q/HZ),0,cap);
   if(useBoost)s.boost--; else if(s.boost<600&&s.ticks%3===0)s.boost++;
   const steeringForce=Math.round(steer*(180+s.speedQ/Q*1.7)*car.handling);
   s.laneVQ=Math.trunc(s.laneVQ*84/100)+steeringForce;
@@ -57,11 +63,21 @@ export function tickRace(s,input={}){
   const near=q(mode.combat?145:8);
   for(const rival of s.rivals){
     if(rival.wrecked)continue;
+    const rivalBefore=rival.distanceQ;
     rival.distanceQ+=Math.trunc(rival.speedQ/HZ);
+    // Deterministic opponents change lanes and defend the apex. There are
+    // no ambient random draws or per-frame dependent AI decisions.
     const delta=rival.distanceQ-s.distanceQ;
-    if(delta< -q(8)||delta>near)continue;
-    const laneDelta=Math.abs(rival.laneQ-s.laneQ);
-    if(Math.abs(delta)<q(5)&&laneDelta<q(.27)&&s.collisionCooldown===0){
+    const target=mode.combat&&delta>0&&delta<q(100) ? clamp(s.laneQ,-q(.82),q(.82)):
+      q(((Math.floor(s.ticks/240)+rival.id+s.seed)%3-1)*.58);
+    const laneStep=q(mode.combat?.006:.003);
+    rival.laneQ+=clamp(target-rival.laneQ,-laneStep,laneStep);
+    const beforeDelta=rivalBefore-previousQ;
+    // OPT-REDUCE-001 narrow phase: admit any vehicle whose swept relative
+    // position might cross the local window, even if the endpoint is far away.
+    if(Math.max(beforeDelta,delta)<-q(8)||Math.min(beforeDelta,delta)>near)continue;
+    if(Math.abs(rival.laneQ-s.laneQ)<q(.27)&&s.collisionCooldown===0&&
+        sweptLongitudinalContact(previousQ,s.distanceQ,rivalBefore,rival.distanceQ,q(5))){
       s.collisionCooldown=85;s.health=Math.max(0,s.health-15);
       s.speedQ=Math.trunc(s.speedQ*57/100);emit('IMPACT');
     }
@@ -83,16 +99,42 @@ export function tickRace(s,input={}){
   }
   if(mode.combat&&s.ticks%540===0)s.ammo=Math.min(12,s.ammo+2);
   if(mode.kind==='checkpoint'){
-    const segment=q(mode.courseMeters/4);
-    const crossed=Math.min(3,Math.floor(s.distanceQ/segment));
-    if(crossed>s.checkpoints){s.checkpoints=crossed;s.timeLeft+=20*HZ;s.score+=250;emit('CHECKPOINT +20s');}
+    const segment=q(TOUR_STAGE_METERS);
+    const crossed=Math.min(TOUR_STAGES-1,Math.floor(s.distanceQ/segment));
+    while(s.route.length<crossed){
+      const choice=s.laneQ<0?'left':'right';
+      s.route.push(choice);
+      emit('FORK '+choice.toUpperCase()+' · STAGE '+(s.route.length+1));
+      s.score+=150;
+    }
+    if(crossed>s.checkpoints){
+      // Each stage checkpoint grants one extension, even if a frame skips
+      // more than one threshold during catch-up.
+      const earned=crossed-s.checkpoints;
+      s.checkpoints=crossed;s.timeLeft+=earned*20*HZ;
+      s.score+=earned*250;emit('CHECKPOINT +'+(20*earned)+'s');
+    }
     s.timeLeft--;
+  }else if(mode.kind==='sprint'){
+    const crossed=Math.min(3,Math.floor(s.distanceQ/q(900)));
+    if(crossed>s.checkpoints){
+      const earned=crossed-s.checkpoints;s.checkpoints=crossed;
+      s.score+=earned*300;emit('SCENIC GATE '+crossed+' / 4');
+    }
   }
   s.lap=Math.min(mode.laps,1+Math.floor(s.distanceQ/q(mode.courseMeters)));
   s.position=1+s.rivals.filter(r=>!r.wrecked&&r.distanceQ>s.distanceQ).length;
   if(s.health<=0){s.status='lost';emit('CAR DESTROYED');}
   else if(s.distanceQ>=q(mode.courseMeters*mode.laps)){
-    s.status='won';s.score+=Math.max(0,10000-Math.trunc(s.ticks/2))+s.knockouts*300;emit('FINISH');
+    if(mode.kind==='sprint'&&Math.abs(s.laneQ)>q(SPRINT_FINISH_LANE)){
+      // No off-road finish. Preserve an approach to the line so the player
+      // can re-enter the road and make a new valid forward crossing.
+      s.distanceQ=q(mode.courseMeters-10);
+      s.speedQ=Math.trunc(s.speedQ*65/100);
+      emit('FINISH GATE MISSED · RETURN TO ROAD');
+    }else{
+      s.status='won';s.score+=Math.max(0,10000-Math.trunc(s.ticks/2))+s.knockouts*300;emit('FINISH');
+    }
   }else if(s.timeLeft!==null&&s.timeLeft<=0){s.status='lost';emit('TIME EXPIRED');}
   if(![s.distanceQ,s.speedQ,s.laneQ,s.laneVQ,...s.rivals.flatMap(r=>[r.distanceQ,r.speedQ,r.laneQ])].every(isInt)){
     throw new RangeError('Q16 integer domain exceeded');

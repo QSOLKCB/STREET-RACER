@@ -234,7 +234,7 @@ included. The historical game is credited as an inspiration for the gameplay loo
 <p align="center"><strong>QSOL-IMC · AFTER HOURS MOTOR WORKS</strong><br>Your build. Your story.</p>
 
 
-## Racing monorepo — four playable games
+## Racing monorepo — five playable games
 
 [**Open the Racing Arcade**](arcade-hub.html) to choose from these independently runnable games:
 
@@ -244,6 +244,7 @@ included. The historical game is credited as an inspiration for the gameplay loo
 | VELOCITY II | [games/supercar-circuit/](games/supercar-circuit/index.html) | Original 1990s supercar circuit racer inspired by the *Need for Speed II* era; five rivals, car/track choice, three laps, nitro. |
 | COAST RUN | [games/coast-run/](games/coast-run/index.html) | Original *OutRun*-inspired scenic checkpoint highway racer; countdown and three time extensions. |
 | OUTLAND ROAD | [games/outland-road/](games/outland-road/index.html) | Original *Outlander*-inspired road-combat arcade racer; ammunition, collision damage, takedowns. |
+| COASTAL SPRINT 3D | [games/coastal-sprint/](games/coastal-sprint/index.html) | Native WebGL point-to-point coast, four rivals, 900 m gates and on-road finish validation. |
 
 The new games share `shared/racer/` (integer Q16.16 race rules, pseudo-3D Canvas renderer, controls and optional synthesis). Their page entrypoints and docs are in `games/`. All paths are relative and work on GitHub Pages' `/STREET-RACER/` subpath. The existing career game, `vendor/` pin inventory, and source-compatible PWA are preserved.
 
@@ -262,3 +263,7 @@ node scripts/site.mjs build _site
 For a full Chromium check, use the GitHub Actions workflow; it drives the existing STREET RACER UI and all three new games. Builds contain only local public files. No telemetry, external assets or paid service is needed.
 
 All new game content is original and is **inspired by** retro racing genres; it does not contain or claim to be an official clone of any commercial franchise.
+
+### RACING-002 upgrade (VANILLAJS PR #84)
+
+COAST RUN now has four 1,300 m stages, three lane-selected forks with deterministic histories, palette and road-curve changes, and timed checkpoints. VELOCITY II and the combat racers gain nitro momentum that bleeds off gradually, tactical rival lane changes and integer longitudinal swept-contact detection. COASTAL SPRINT 3D adds an original 3,600 m winding WebGL course, scenery and rival traffic, with Canvas2D fallback. The existing STREET-RACER Q16.16 simulation remains authoritative; VANILLAJS RACING-002's Float64 lab is a design reference, not a copied simulation. See [adoption details](docs/RACING_002_ADOPTION.md).

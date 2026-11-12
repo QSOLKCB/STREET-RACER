@@ -24,7 +24,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 let browser;const findings=[];
 try{
   browser=await chromium.launch({headless:true});
-  for(const mode of ['supercar-circuit','coast-run','outland-road']){
+  for(const mode of ['supercar-circuit','coast-run','outland-road','coastal-sprint']){
     const page=await browser.newPage({viewport:{width:1280,height:900}});
     const errors=[],offsite=[];
     page.on('pageerror',e=>errors.push(e.message));
@@ -34,6 +34,31 @@ try{
     await page.goto(url,{waitUntil:'networkidle'});
     assert.equal(await page.locator('#race-canvas').count(),1);
     assert.equal(await page.locator('#start').isVisible(),true);
+    if(mode==='coastal-sprint'){
+      const supported=await page.evaluate(()=>!!document.createElement('canvas').getContext('webgl'));
+      if(supported){
+        assert.equal(await page.locator('#webgl-view').isVisible(),true,'3D view must display');
+        const bounds=await page.locator('#webgl-view').evaluate(canvas=>{
+          const stage=canvas.closest('.stage'),s=stage.getBoundingClientRect();
+          const c=canvas.getBoundingClientRect(),style=getComputedStyle(canvas);
+          return {position:style.position,width:c.width,height:c.height,
+            dx:c.left-s.left,dy:c.top-s.top,stageWidth:s.width,stageHeight:s.height,
+            hasGL:!!canvas.getContext('webgl')&&canvas.width>1};
+        });
+        assert.equal(bounds.position,'absolute','WebGL must not flow beneath the 2D canvas');
+        assert.ok(bounds.hasGL,'actual native WebGL context is required');
+        assert.ok(bounds.width>100&&bounds.height>100);
+        assert.ok(Math.abs(bounds.dx)<=2&&Math.abs(bounds.dy)<=2,
+          'WebGL top-left must be over the 2D race viewport');
+        assert.ok(Math.abs(bounds.width-bounds.stageWidth)<=3&&
+          Math.abs(bounds.height-bounds.stageHeight)<=3,
+          'WebGL viewport must fill the visible race stage');
+      }else assert.equal(await page.locator('#race-canvas').isVisible(),true,'Canvas fallback required');
+    }
+    if(mode==='coast-run'){
+      assert.equal(await page.locator('#route').textContent(),'CHOOSE');
+      assert.equal(await page.locator('#sector').textContent(),'1 / 4');
+    }
     await page.locator('#start').click();
     await page.keyboard.down('ArrowUp');
     await page.waitForTimeout(850);
@@ -63,6 +88,17 @@ try{
       await page.keyboard.up('ArrowUp');
     }
     await page.screenshot({path:path.join(out,mode+'.png'),fullPage:true});
+    if(mode==='coastal-sprint'&&await page.locator('#webgl-view').isVisible()){
+      // The loss handler must uncover a usable, repainted 2D fallback.
+      await page.locator('#webgl-view').evaluate(canvas=>
+        canvas.dispatchEvent(new Event('webglcontextlost',{cancelable:true})));
+      assert.equal(await page.locator('#webgl-view').isVisible(),false,
+        'lost WebGL context must hide the overlay');
+      await page.waitForFunction(()=>{
+        const canvas=document.querySelector('#race-canvas'),context=canvas.getContext('2d');
+        return context.getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data[3]===255;
+      });
+    }
     // Exercise a genuine offline deep-link reload after this game registers
     // and the root worker has populated its own deterministic asset cache.
     await page.waitForFunction(()=>navigator.serviceWorker?.controller!==null&&navigator.serviceWorker?.controller!==undefined,{timeout:20000});

@@ -5,6 +5,7 @@ import {createRace,distanceMeters,speedKph,finishMeters} from './sim.js';
 import {advanceRaceFrame} from './frame.js';
 import {render,W,H} from './renderer.js';
 import {createRaceAudio} from './audio.js';
+import {createSprintRenderer} from './webgl.js';
 
 const mode=document.body.dataset.mode;
 if(!Object.hasOwn(MODES,mode))throw new Error('Invalid game mode');
@@ -15,10 +16,30 @@ const $=id=>document.getElementById(id);
 const trackSelect=$('track'),carSelect=$('vehicle'),overlay=$('overlay'),heading=$('overlay-heading'),
   description=$('overlay-description'),start=$('start'),sound=$('sound'),pause=$('pause'),
   status=$('status'),speed=$('speed'),lap=$('lap'),rank=$('rank'),health=$('health'),nitro=$('nitro'),
-  ammo=$('ammo'),distance=$('distance'),event=$('event'),timer=$('timer');
+  ammo=$('ammo'),distance=$('distance'),event=$('event'),timer=$('timer'),
+  sector=$('sector'),route=$('route');
 const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:0});
 const audio=createRaceAudio(),held=new Set();
 let race=createRace({mode}),last=null,playing=false,frameId=null,messageUntil=0;
+const three=$('webgl-view');
+let scene3d=null;
+if(three){
+  try{scene3d=createSprintRenderer(three);three.hidden=false;}
+  catch{three.hidden=true;} // WebGL is optional; native Canvas remains playable.
+  three.addEventListener('webglcontextlost',e=>{
+    e.preventDefault();scene3d=null;three.hidden=true;
+  });
+}
+function paintRace(){
+  if(scene3d){
+    try{scene3d.draw(race);return;}
+    catch{
+      try{scene3d.dispose()}catch{}
+      scene3d=null;three.hidden=true;
+    }
+  }
+  render(ctx,race);
+}
 const keyMap={ArrowUp:'accelerate',KeyW:'accelerate',ArrowDown:'brake',KeyS:'brake',
   ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',
   Space:'boost',ShiftLeft:'boost',KeyF:'fire'};
@@ -30,7 +51,15 @@ $('title').textContent=settings.title;$('subtitle').textContent=settings.subtitl
 $('mode').textContent=settings.kind.toUpperCase();
 if(!settings.combat){$('ammo-box').hidden=true}
 if(settings.kind!=='checkpoint'){$('timer-box').hidden=true}
-if(settings.kind==='checkpoint')$('objective').textContent='Beat the clock · collect +20s checkpoints';
+if(settings.kind==='checkpoint'){
+  $('objective').textContent='3 LEFT / RIGHT forks · collect +20s checkpoints';
+}
+if(settings.kind==='sprint'){
+  $('objective').textContent='Native WebGL · 3.6 km · 4 scenic gates';
+  trackSelect.parentElement.hidden=true; // This authored 3D route has one course.
+}
+if(sector)sector.closest('.metric').hidden=!['checkpoint','sprint'].includes(settings.kind);
+if(route)route.closest('.metric').hidden=settings.kind!=='checkpoint';
 if(settings.combat)$('objective').textContent='Survive · F to fire · take down rivals';
 function controls(){return {accelerate:held.has('accelerate'),brake:held.has('brake'),
   steer:Number(held.has('right'))-Number(held.has('left')),
@@ -84,7 +113,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame('
 window.addEventListener('pagehide',pageEvent=>{
   if(playing)pauseGame('RACE PAUSED');
   else clearInput();
-  if(!pageEvent.persisted)void audio.dispose();
+  if(!pageEvent.persisted){void audio.dispose();scene3d?.dispose();scene3d=null;}
   if(frameId!==null){cancelAnimationFrame(frameId);frameId=null;}
   last=null;
 });
@@ -96,7 +125,15 @@ window.addEventListener('pageshow',pageEvent=>{
   if(frameId===null)frameId=requestAnimationFrame(frame);
 });
 function updateHud(now,frameEvents=[]){
-  speed.textContent=String(speedKph(race));lap.textContent=String(race.lap)+' / '+settings.laps;
+  speed.textContent=String(speedKph(race));
+  lap.textContent=settings.kind==='checkpoint'?String(Math.min(4,race.route.length+1))+' / 4':
+    settings.kind==='sprint'?String(Math.min(4,race.checkpoints+1))+' / 4':
+    String(race.lap)+' / '+settings.laps;
+  if(sector)sector.textContent=settings.kind==='checkpoint'?
+    String(Math.min(4,race.route.length+1))+' / 4':
+    String(Math.min(4,race.checkpoints+1))+' / 4';
+  if(route)route.textContent=race.route.length?
+    race.route.map(choice=>choice==='left'?'L':'R').join(' · '):'CHOOSE';
   rank.textContent=String(race.position)+' / '+(race.rivals.length+1);
   health.textContent=String(race.health)+'%';nitro.textContent=String(Math.ceil(race.boost/6))+'%';
   ammo.textContent=String(race.ammo);distance.textContent=Math.floor(distanceMeters(race))+' / '+finishMeters(race)+' m';
@@ -126,11 +163,12 @@ function frame(now){
           'The road wins this round. Tune your route and go again.','RACE AGAIN');
     }
   }
-  render(ctx,race);updateHud(now,frameEvents);
+  paintRace();updateHud(now,frameEvents);
 }
 const clampDelta=t=>Math.max(0,Math.min(.25,t));
-showOverlay(settings.title,settings.kind==='circuit'?'Three laps, rival supercars, alpine bends and nitro.':
-  settings.kind==='checkpoint'?'Chase the horizon. Hit checkpoints before the timer expires.':
+showOverlay(settings.title,settings.kind==='circuit'?'Three laps, rival supercars, mountain passes and earned nitro.':
+  settings.kind==='checkpoint'?'Four dramatic stages, three lane-selected forks and a ticking checkpoint clock.':
+  settings.kind==='sprint'?'A 3.6 km winding WebGL coastal road with moving rivals, scenic gates and a strict on-road finish.':
     'Armoured road combat, limited ammunition and rival takedowns.','START ENGINE');
 // A direct deep link must install the same root-scoped, content-addressed PWA
 // as the legacy game. Registration is local-only and optional for file:// previews.
