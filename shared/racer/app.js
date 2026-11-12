@@ -110,4 +110,10 @@ const clampDelta=t=>Math.max(0,Math.min(.25,t));
 showOverlay(settings.title,settings.kind==='circuit'?'Three laps, rival supercars, alpine bends and nitro.':
   settings.kind==='checkpoint'?'Chase the horizon. Hit checkpoints before the timer expires.':
     'Armoured road combat, limited ammunition and rival takedowns.','START ENGINE');
+// A direct deep link must install the same root-scoped, content-addressed PWA
+// as the legacy game. Registration is local-only and optional for file:// previews.
+if('serviceWorker' in navigator &&
+    (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
+  navigator.serviceWorker.register('../../sw.js').catch(()=>{});
+}
 frameId=requestAnimationFrame(frame);
