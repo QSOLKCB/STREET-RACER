@@ -222,6 +222,9 @@ test('RACING-002 road paint, tyres, and Q16.16 sprint penalties share a physical
     sprintLateralMetres(offroad)+SPRINT_TYRE_HALF_WIDTH_METRES>
     SPRINT_ROAD_HALF_WIDTH_METRES,'lane 1.2 must visibly cross the painted road edge');
   const reference=createRace({mode:'sprint'});
+  // The RACING-002 formula remains a compatibility path for a legacy
+  // un-authored WebGL scene. The default RACING-003 game uses s.pack.
+  reference.pack=null;
   for(const lane of [0,inside,SPRINT_OFFROAD_LANE,offroad,-offroad]){
     reference.laneQ=Math.round(lane*Q);
     const mesh=sprintTrafficGeometry(reference);
@@ -253,7 +256,7 @@ test('RACING-002 road paint, tyres, and Q16.16 sprint penalties share a physical
   assert.ok(Math.abs(Math.min(...slab)+SPRINT_ROAD_HALF_WIDTH_METRES)<1e-8);
   assert.throws(()=>sprintLateralMetres(NaN),TypeError);
   const good=createRace({mode:'sprint'});good.laneQ=Math.round(inside*Q);
-  good.distanceQ=Math.round(3599.5*Q);good.speedQ=90*Q;
+  good.distanceQ=Math.round((FOUNDRY_TOTAL-.5)*Q);good.speedQ=90*Q;
   tickRace(good,{accelerate:true});assert.equal(good.status,'won');
   const bad=createRace({mode:'sprint'});bad.laneQ=Math.round(offroad*Q);bad.speedQ=90*Q;
   tickRace(bad,{accelerate:true});
@@ -363,4 +366,28 @@ test('RACING-003 drivable circuit uses validated authored gate coordinates',()=>
   assert.ok(Math.hypot(moving.x-initial.x,moving.z-initial.z)>5);
   assert.ok(Number.isSafeInteger(circuit.xQ)&&Number.isSafeInteger(circuit.zQ));
   assert.throws(()=>createCircuit(starterTrack(),21),RangeError);
+});
+
+test('RACING-003 authored WebGL player tyre extent matches its variable road half-width',()=>{
+  const race=createRace({mode:'sprint'}),pack=race.pack;
+  for(const d of [0,1200,4800,9600,FOUNDRY_TOTAL-20]){
+    for(const lane of [-1,0,.95,1.2]){
+      race.distanceQ=Math.round(d*Q);
+      race.laneQ=Math.round(lane*Q);
+      const vertices=sprintTrafficGeometry(race);
+      const heading=foundryHeading(pack,d,race.route),center=foundryCenter(pack,d,race.route);
+      const xAxis=[Math.cos(heading),Math.sin(heading)],position=foundryLateralMetres(pack,d,race.laneQ/Q);
+      const coords=[];
+      for(let i=0;i<10*36*6;i+=6){
+        coords.push((vertices[i]-center)*xAxis[0]+(vertices[i+2]+d)*xAxis[1]);
+      }
+      const maximum=Math.max(...coords),minimum=Math.min(...coords);
+      assert.ok(Math.abs(maximum-(position+SPRINT_TYRE_HALF_WIDTH_METRES))<1e-7,
+        'authored outer tyre at '+d+'m should match the road normal');
+      assert.ok(Math.abs(minimum-(position-SPRINT_TYRE_HALF_WIDTH_METRES))<1e-7);
+      const halfWidth=foundryWidth(pack,d);
+      assert.ok(position+SPRINT_TYRE_HALF_WIDTH_METRES<=halfWidth+1e-7||lane>1,
+        'within-lane rendered tyre must not cross asphalt');
+    }
+  }
 });
