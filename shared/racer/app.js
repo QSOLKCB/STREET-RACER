@@ -6,6 +6,7 @@ import {advanceRaceFrame} from './frame.js';
 import {render,W,H} from './renderer.js';
 import {createRaceAudio} from './audio.js';
 import {createSprintRenderer} from './webgl.js';
+import {selectedTrackFromStorage,sourceEnvironmentToGame} from './foundry.js';
 
 const mode=document.body.dataset.mode;
 if(!Object.hasOwn(MODES,mode))throw new Error('Invalid game mode');
@@ -20,11 +21,19 @@ const trackSelect=$('track'),carSelect=$('vehicle'),overlay=$('overlay'),heading
   sector=$('sector'),route=$('route');
 const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:0});
 const audio=createRaceAudio(),held=new Set();
-let race=createRace({mode}),last=null,playing=false,frameId=null,messageUntil=0;
+const savedFoundry=selectedTrackFromStorage(window.localStorage,mode);
+const selectedOptions=()=>{
+  const usePack=savedFoundry&&trackSelect.value==='foundry';
+  return {mode,track:usePack?sourceEnvironmentToGame(savedFoundry.environment):
+    trackSelect.value,car:carSelect.value,trackPack:usePack?savedFoundry:null};
+};
+let race=createRace({mode,track:savedFoundry?
+  sourceEnvironmentToGame(savedFoundry.environment):undefined,trackPack:savedFoundry}),
+  last=null,playing=false,frameId=null,messageUntil=0;
 const three=$('webgl-view');
 let scene3d=null;
 if(three){
-  try{scene3d=createSprintRenderer(three);three.hidden=false;}
+  try{scene3d=createSprintRenderer(three,race.foundry);three.hidden=false;}
   catch{three.hidden=true;} // WebGL is optional; native Canvas remains playable.
   three.addEventListener('webglcontextlost',e=>{
     e.preventDefault();scene3d=null;three.hidden=true;
@@ -44,7 +53,10 @@ const keyMap={ArrowUp:'accelerate',KeyW:'accelerate',ArrowDown:'brake',KeyS:'bra
   ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',
   Space:'boost',ShiftLeft:'boost',KeyF:'fire'};
 for(const track of Object.values(TRACKS))trackSelect.add(new Option(track.name,track.id));
-trackSelect.value=settings.defaultTrack;
+if(savedFoundry){
+  trackSelect.add(new Option('TRACK FOUNDRY · '+savedFoundry.name,'foundry'));
+  trackSelect.value='foundry';
+}else trackSelect.value=settings.defaultTrack;
 for(const car of Object.values(CARS))carSelect.add(new Option(car.name,car.id));
 carSelect.value=settings.combat?'bruiser':'comet';
 $('title').textContent=settings.title;$('subtitle').textContent=settings.subtitle;
@@ -56,11 +68,14 @@ if(settings.kind==='checkpoint'){
 }
 if(settings.kind==='sprint'){
   $('objective').textContent='Native WebGL · 3.6 km · 4 scenic gates';
-  trackSelect.parentElement.hidden=true; // This authored 3D route has one course.
+  trackSelect.parentElement.hidden=!savedFoundry; // Existing one-route UI remains unchanged.
 }
 if(sector)sector.closest('.metric').hidden=!['checkpoint','sprint'].includes(settings.kind);
 if(route)route.closest('.metric').hidden=settings.kind!=='checkpoint';
 if(settings.combat)$('objective').textContent='Survive · F to fire · take down rivals';
+if(savedFoundry)$('objective').textContent=
+  'TRACK FOUNDRY · '+savedFoundry.name+' · '+(mode==='supercar'?'8 edited gates':'4 authored road stages');
+trackSelect.addEventListener('change',()=>{if(playing)pauseGame('COURSE CHANGED');});
 function controls(){return {accelerate:held.has('accelerate'),brake:held.has('brake'),
   steer:Number(held.has('right'))-Number(held.has('left')),
   boost:held.has('boost'),fire:held.has('fire')};}
@@ -74,17 +89,23 @@ function pauseGame(reason='PAUSED'){
   showOverlay(reason,'Race frozen. Your car and rivals will not advance until you resume.','RESUME RACE');
   pause.textContent='RESUME';
 }
-function startGame(){
-  if(race.status!=='running'||race.ticks===0){
-    race=createRace({mode,track:trackSelect.value,car:carSelect.value});
-    clock.reset();messageUntil=0;event.textContent='';
+function newSelectedRace(){
+  race=createRace(selectedOptions());
+  clock.reset();messageUntil=0;event.textContent='';
+  if(three&&scene3d){
+    scene3d.dispose();scene3d=null;
+    try{scene3d=createSprintRenderer(three,race.foundry);three.hidden=false;}
+    catch{three.hidden=true;}
   }
+}
+function startGame(){
+  if(race.status!=='running'||race.ticks===0)newSelectedRace();
   playing=true;clock.setPaused(false);last=null;clearInput();
   overlay.hidden=true;pause.textContent='PAUSE';
 }
 start.addEventListener('click',()=>{startGame()});
 pause.addEventListener('click',()=>playing?pauseGame():startGame());
-$('restart').addEventListener('click',()=>{race=createRace({mode,track:trackSelect.value,car:carSelect.value});
+$('restart').addEventListener('click',()=>{race=createRace(selectedOptions());
   clock.reset();playing=false;pauseGame();startGame()});
 sound.addEventListener('click',async()=>{
   const enabled=await audio.setSound(!audio.enabled);
@@ -94,7 +115,7 @@ document.addEventListener('keydown',e=>{
   if(e.code==='KeyP'||e.code==='Escape'){
     if(!e.repeat){playing?pauseGame():startGame()}e.preventDefault();return;
   }
-  if(e.code==='KeyR'&&!e.repeat){race=createRace({mode,track:trackSelect.value,car:carSelect.value});
+  if(e.code==='KeyR'&&!e.repeat){race=createRace(selectedOptions());
     clock.reset();playing=false;startGame();return;}
   const action=keyMap[e.code];
   if(action&&overlay.hidden){held.add(action);e.preventDefault()}
