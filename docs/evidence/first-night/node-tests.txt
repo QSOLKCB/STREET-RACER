@@ -1,0 +1,196 @@
+TAP version 13
+# Subtest: E8-derived arrangement is seeded, bounded and uses all authored phrase roles
+ok 1 - E8-derived arrangement is seeded, bounded and uses all authored phrase roles
+  ---
+  duration_ms: 11.592941
+  type: 'test'
+  ...
+# Subtest: engine telemetry remains finite under missing, invalid and extreme values
+ok 2 - engine telemetry remains finite under missing, invalid and extreme values
+  ---
+  duration_ms: 0.541271
+  type: 'test'
+  ...
+# Subtest: optional audio allocates nothing until activation and fails gracefully without a receiver
+ok 3 - optional audio allocates nothing until activation and fails gracefully without a receiver
+  ---
+  duration_ms: 2.399838
+  type: 'test'
+  ...
+# Subtest: sound pause, mute and explicit resume retain bounded source and buffer lifecycles
+ok 4 - sound pause, mute and explicit resume retain bounded source and buffer lifecycles
+  ---
+  duration_ms: 87.860849
+  type: 'test'
+  ...
+# Subtest: a long frame skips music debt and repeated mute/unmute uses one context
+ok 5 - a long frame skips music debt and repeated mute/unmute uses one context
+  ---
+  duration_ms: 4.637056
+  type: 'test'
+  ...
+# Subtest: fresh career has a useful budget and requires an actual first car purchase
+ok 6 - fresh career has a useful budget and requires an actual first car purchase
+  ---
+  duration_ms: 4.534734
+  type: 'test'
+  ...
+# Subtest: all cars, part levels, courses and rival dependencies resolve
+ok 7 - all cars, part levels, courses and rival dependencies resolve
+  ---
+  duration_ms: 0.456535
+  type: 'test'
+  ...
+# Subtest: invalid purchases and unknown actions preserve career and cash
+ok 8 - invalid purchases and unknown actions preserve career and cash
+  ---
+  duration_ms: 0.597433
+  type: 'test'
+  ...
+# Subtest: garage occupancy, selection, resale and active-car replacement stay coherent
+ok 9 - garage occupancy, selection, resale and active-car replacement stay coherent
+  ---
+  duration_ms: 2.087827
+  type: 'test'
+  ...
+# Subtest: each upgrade changes its useful stat, is priced once and stops at level three
+ok 10 - each upgrade changes its useful stat, is priced once and stops at level three
+  ---
+  duration_ms: 5.064839
+  type: 'test'
+  ...
+# Subtest: service, fuel, paint and final-drive tuning have bounded explicit effects
+ok 11 - service, fuel, paint and final-drive tuning have bounded explicit effects
+  ---
+  duration_ms: 1.127488
+  type: 'test'
+  ...
+# Subtest: save roundtrip preserves every owned car and strict campaign state
+ok 12 - save roundtrip preserves every owned car and strict campaign state
+  ---
+  duration_ms: 0.891088
+  type: 'test'
+  ...
+# Subtest: save admission rejects malformed, nonfinite, oversized and prototype-bearing input
+ok 13 - save admission rejects malformed, nonfinite, oversized and prototype-bearing input
+  ---
+  duration_ms: 2.147755
+  type: 'test'
+  ...
+# Subtest: accepted save identities remain bounded and roundtrip through formatted exports
+ok 14 - accepted save identities remain bounded and roundtrip through formatted exports
+  ---
+  duration_ms: 2.273221
+  type: 'test'
+  ...
+# Subtest: car identity capacity rejects a pink-slip challenge before an unrepresentable prize
+ok 15 - car identity capacity rejects a pink-slip challenge before an unrepresentable prize
+  ---
+  duration_ms: 12.704324
+  type: 'test'
+  ...
+# Subtest: race admission respects reputation, fuel, condition, cash and garage risk
+ok 16 - race admission respects reputation, fuel, condition, cash and garage risk
+  ---
+  duration_ms: 0.512307
+  type: 'test'
+  ...
+# Subtest: countdown locks motion, pause locks time and the starter can win the first cash race
+ok 17 - countdown locks motion, pause locks time and the starter can win the first cash race
+  ---
+  duration_ms: 6.335057
+  type: 'test'
+  ...
+# Subtest: same seed and inputs replay byte for byte across all routes
+ok 18 - same seed and inputs replay byte for byte across all routes
+  ---
+  duration_ms: 83.532003
+  type: 'test'
+  ...
+# Subtest: constant controls yield the same fixed ticks at 30, 60 and 120 presentation Hz
+ok 19 - constant controls yield the same fixed ticks at 30, 60 and 120 presentation Hz
+  ---
+  duration_ms: 0.672754
+  type: 'test'
+  ...
+# Subtest: manual shifts survive sub-tick frames and held keys do not skip gears
+ok 20 - manual shifts survive sub-tick frames and held keys do not skip gears
+  ---
+  duration_ms: 0.521621
+  type: 'test'
+  ...
+# Subtest: manual redline, leaving the road, and hazards impose real costs
+ok 21 - manual redline, leaving the road, and hazards impose real costs
+  ---
+  duration_ms: 16.140279
+  type: 'test'
+  ...
+# Subtest: practice does not charge cash, consume resources, grant reputation or alter records
+ok 22 - practice does not charge cash, consume resources, grant reputation or alter records
+  ---
+  duration_ms: 10.035758
+  type: 'test'
+  ...
+# Subtest: cash and pink-slip settlement happens once, including after save/reload
+ok 23 - cash and pink-slip settlement happens once, including after save/reload
+  ---
+  duration_ms: 3.298918
+  type: 'test'
+  ...
+# Subtest: losing the last car with no cash remains recoverable through workshop work
+ok 24 - losing the last car with no cash remains recoverable through workshop work
+  ---
+  duration_ms: 1.134327
+  type: 'test'
+  ...
+# Subtest: all campaign rivals and the crown are reachable using only valid career actions
+ok 25 - all campaign rivals and the crown are reachable using only valid career actions
+  ---
+  duration_ms: 15.456753
+  type: 'test'
+  ...
+# Subtest: adversarial controls and clock inputs remain bounded without nonfinite vehicle state
+ok 26 - adversarial controls and clock inputs remain bounded without nonfinite vehicle state
+  ---
+  duration_ms: 26.658055
+  type: 'test'
+  ...
+# Subtest: fractional DPR uses rounded backing dimensions without reallocating an unchanged frame
+ok 27 - fractional DPR uses rounded backing dimensions without reallocating an unchanged frame
+  ---
+  duration_ms: 2.460388
+  type: 'test'
+  ...
+# Subtest: perspective approaches the horizon monotonically and never mirrors tiny viewports
+ok 28 - perspective approaches the horizon monotonically and never mirrors tiny viewports
+  ---
+  duration_ms: 0.656831
+  type: 'test'
+  ...
+# Subtest: road layout is deterministic, bounded, and uses the simulation curve equation
+ok 29 - road layout is deterministic, bounded, and uses the simulation curve equation
+  ---
+  duration_ms: 1.416765
+  type: 'test'
+  ...
+# Subtest: canvas failure leaves gameplay available instead of throwing
+ok 30 - canvas failure leaves gameplay available instead of throwing
+  ---
+  duration_ms: 1.17707
+  type: 'test'
+  ...
+# Subtest: vehicle and race rendering do not mutate state and submit only finite geometry
+ok 31 - vehicle and race rendering do not mutate state and submit only finite geometry
+  ---
+  duration_ms: 62.7793
+  type: 'test'
+  ...
+1..31
+# tests 31
+# suites 0
+# pass 31
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 391.862198

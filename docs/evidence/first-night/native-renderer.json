@@ -1,0 +1,113 @@
+{
+  "status": "PASS",
+  "kind": "native-canvas-not-browser",
+  "node": "v24.22.1",
+  "canvas": "0.1.100",
+  "sourceSha256": "f3eaa9eb0d5704666ef30feb08c43778af5a4a1044920d28b16228161c9f82b3",
+  "cases": [
+    {
+      "kind": "garage",
+      "width": 900,
+      "height": 440,
+      "dpr": 1,
+      "pixels": [
+        900,
+        440
+      ],
+      "repeatExact": true,
+      "freshExact": true,
+      "rgbaSha256": "6171c468d3f0b70614883d5b4f783a79cd99c4690290af855edc4b9176aaed1f"
+    },
+    {
+      "kind": "race",
+      "width": 900,
+      "height": 440,
+      "dpr": 1,
+      "pixels": [
+        900,
+        440
+      ],
+      "repeatExact": true,
+      "freshExact": true,
+      "rgbaSha256": "52050cf047921befc81346cd9429c711f7c992bb3e206133b951f1217d69e145"
+    },
+    {
+      "kind": "garage",
+      "width": 320,
+      "height": 260,
+      "dpr": 1,
+      "pixels": [
+        320,
+        260
+      ],
+      "repeatExact": true,
+      "freshExact": true,
+      "rgbaSha256": "39c29c936f4c5c58c4ba6eb1366bea5537de41b963ddcc98f587f9d984ff40d0"
+    },
+    {
+      "kind": "race",
+      "width": 320,
+      "height": 260,
+      "dpr": 1,
+      "pixels": [
+        320,
+        260
+      ],
+      "repeatExact": true,
+      "freshExact": true,
+      "rgbaSha256": "272b25cc53e76dc24b7e45fbde7727b0883ceee43a28adc45730ff62e171f686"
+    },
+    {
+      "kind": "garage",
+      "width": 601,
+      "height": 421,
+      "dpr": 1.25,
+      "pixels": [
+        751,
+        526
+      ],
+      "repeatExact": true,
+      "freshExact": true,
+      "rgbaSha256": "a789b1bdc94d0474b6aeed6770f9d2c230083e712f31f8e16df0a3a2d722f4b2"
+    },
+    {
+      "kind": "race",
+      "width": 601,
+      "height": 421,
+      "dpr": 1.25,
+      "pixels": [
+        751,
+        526
+      ],
+      "repeatExact": true,
+      "freshExact": true,
+      "rgbaSha256": "410dc5405bb1bbd6158a2ea000b63fcbab55ff400cbe5618cf68fae4294f4c63"
+    },
+    {
+      "kind": "garage",
+      "width": 1200,
+      "height": 650,
+      "dpr": 2,
+      "pixels": [
+        2400,
+        1300
+      ],
+      "repeatExact": true,
+      "freshExact": true,
+      "rgbaSha256": "cb146212ebd12c33233547b106a691d65e6c62ed8de7f2b4253dcd5bf1efbc13"
+    },
+    {
+      "kind": "race",
+      "width": 1200,
+      "height": 650,
+      "dpr": 2,
+      "pixels": [
+        2400,
+        1300
+      ],
+      "repeatExact": true,
+      "freshExact": true,
+      "rgbaSha256": "7ec220d2667e18c06bd0c38e2bc0c7bb742da1cf0fa82bdcabadde6a4dd85cbc"
+    }
+  ]
+}
