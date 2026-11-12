@@ -4,7 +4,7 @@
 
 The repository currently contains **four playable racing experiences**. The first is the original career game kept at `/` for existing bookmarks, root service-worker scope, save-game compatibility and the established Chromium checks. `games/street-racer/README.md` records this explicit package boundary. A later migration of original files requires separate redirects, import rewrites, service-worker tests and saved-career compatibility proofs; this PR does **not** silently break those interfaces.
 
-All new games are ordinary static pages below `games/`. Root `arcade-hub.html` links to all of them. `scripts/site.mjs` packages all new directories, rejects symlinks and checks every local ES-module import. Its content-addressed service worker must be refreshed after asset changes; offline navigation falls back to the cached **requested game page** before the legacy root. CI runs the complete local test and browser suite before Pages deployment.
+All new games are ordinary static pages below `games/`. Root `arcade-hub.html` links to all of them. `scripts/site.mjs` packages all new directories, rejects symlinks and checks every local ES-module import. Its content-addressed service worker must be refreshed after asset changes; offline navigation falls back to the cached **requested game page** before the legacy root. Each standalone game registers the root-scoped worker on HTTPS or localhost, so direct deep links support offline reloads after the initial precache. CI runs the complete local test, actual offline deep-link reloads and browser suite before Pages deployment.
 
 ## Shared dependencies and provenance
 
