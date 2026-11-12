@@ -34,7 +34,7 @@ const observe=p=>{
 };
 async function advance(ms,p=page){await p.clock.runFor(ms);}
 async function picture(name,p=page){await advance(50,p);await p.screenshot({path:path.join(out,name+'.png'),fullPage:true});receipt.screenshots.push(name+'.png');}
-async function close(p=page){if(await p.locator('#dialog').evaluate(d=>d.open))await p.locator('#dialog [data-action="close"]').click();}
+async function close(p=page){if(await p.locator('#dialog').evaluate(d=>d.open))await p.getByRole('button',{name:'Close dialog',exact:true}).click();}
 async function check(name,fn){current=name;const started=performance.now();await fn();receipt.checks.push({name,status:'PASS',elapsedMs:Math.round(performance.now()-started)});await fs.writeFile(path.join(out,'result.json'),JSON.stringify(receipt,null,2)+'\n');}
 async function openPage(ctx,initialise){
   const p=await ctx.newPage();p.setDefaultTimeout(15000);observe(p);
