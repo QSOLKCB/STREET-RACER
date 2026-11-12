@@ -27,6 +27,7 @@ jobs:
       - name: Verify source pins and complete offline inventory
         run: |
           node scripts/verify-vendor.mjs
+          node scripts/site.mjs refresh
           node scripts/site.mjs check
       - name: Stage only the public game
         run: node scripts/site.mjs build _site
@@ -37,7 +38,9 @@ jobs:
       - name: Play, inspect and test the packaged game
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/street-racer-browser/node_modules/playwright
-        run: node tests/browser.mjs
+        run: |
+          node tests/browser.mjs
+          node tests/racer-browser.mjs
       - name: Preserve browser evidence, including failures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
