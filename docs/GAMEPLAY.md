@@ -141,7 +141,7 @@ rivals may practise on all three routes, including the Monarch away from the Pas
 
 ## The arcade
 
-The **Arcade** view runs five stake-free side events: Horizon Tour (four 1,500 m
+The **Arcade** view runs five stake-free side events: Horizon Tour (five 1,500 m
 highway stages), Vector Ring (five laps), Impact Arena (five knockouts), Boost
 Pitch (first to five goals) and Skyline Span (three elevated laps with real gaps).
 They use your active car's paint and nothing else from the career; cash, cars,

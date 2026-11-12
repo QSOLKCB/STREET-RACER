@@ -13,7 +13,7 @@ node scripts/site.mjs check
 node scripts/site.mjs build _site
 ```
 
-The current implementation has 44 regression tests:
+The current implementation has 47 regression tests:
 
 | Area | Coverage |
 | --- | --- |
@@ -21,7 +21,7 @@ The current implementation has 44 regression tests:
 | Determinism and admission | Twelve course/seed replay pairs; 30/60/120 Hz fixed-step equivalence; queued manual shifts; extreme controls; UTF-8 save bounds, finite values, prototype-bearing input and identity limits. These are included in the career total. |
 | Audio (5) | No audio allocation before activation; deterministic E8-derived score; missing audio support; pause/mute/resume; bounded voices and instrument buffers; no burst after a long frame. |
 | Renderer (5) | Rounded fractional-DPR geometry, unchanged backing-store reuse, finite bounded perspective, deterministic road geometry, read-only input state and unavailable Canvas2D. |
-| Arcade (13) | Five modes with longer objectives; invalid timesteps; same-input repeatability; hostile control values; four highway stages and a flat-out tour lasting over a minute; five circuit laps; five derby knockouts with health remaining; football goals; stunt gaps, respawns and three laps; finite bounded WebGL geometry and paint mapping; the retro road projection and a mutation-free draw; bounded audio telemetry; and the entry points and safety handlers. |
+| Arcade (16) | Five modes with longer objectives; invalid timesteps; same-input repeatability; hostile control values; five highway stages and a flat-out tour lasting over 80 s; rivals recovering from contact immunity; boost that accumulates and bleeds off; no upward teleport after falling under the stunt deck; five circuit laps; five derby knockouts with health remaining; football goals; stunt gaps, respawns and three laps; finite bounded WebGL geometry and paint mapping; the retro road projection and a mutation-free draw; bounded audio telemetry; and the entry points and safety handlers. |
 
 The source-hashed Node receipt and its original output are in [evidence/first-night](evidence/first-night/). The donor verifier checks every pinned file against the checked-in SHA-256 manifest and rejects unknown vendor files. The site gate checks every local module import and the complete, content-addressed offline inventory.
 
@@ -64,4 +64,4 @@ Independent review reproduced and fixed exhausted pink-slip prize identities, ov
 
 ## Arcade side events and longer roads (local evidence)
 
-[evidence/arcade-side-events](evidence/arcade-side-events/) holds the Node receipt for the 44-test suite and a local headless Chromium receipt for all 18 browser checks, produced with the pinned Playwright module and a locally installed Chromium build rather than the hosted runner. It records the five arcade modes launched, driven, paused, exported and exited with the career unchanged. The hosted workflow run attached to the pull request remains the authoritative browser evidence.
+[evidence/arcade-side-events](evidence/arcade-side-events/) holds the Node receipt for the 47-test suite and a local headless Chromium receipt for all 18 browser checks, produced with the pinned Playwright module and a locally installed Chromium build rather than the hosted runner. It records the five arcade modes launched, driven, paused, exported and exited with the career unchanged. The hosted workflow run attached to the pull request remains the authoritative browser evidence.

@@ -16,7 +16,7 @@ pinned, unmodified VANILLAJS modules under `vendor/vanillajs/modules/`.
 
 | Mode | Picture | Challenge | Finish |
 | --- | --- | --- | --- |
-| **Horizon Tour** | Canvas2D pseudo-3D highway | Curved horizon, five traffic cars, nitro, road shoulders | 4 stages × 1,500 m = 6,000 m |
+| **Horizon Tour** | Canvas2D pseudo-3D highway | Curved horizon, five traffic cars, nitro, road shoulders | 5 stages × 1,500 m = 7,500 m |
 | **Vector Ring** | WebGL low-poly circuit | Eight ordered gates, four rivals, body contact | 5 laps |
 | **Impact Arena** | WebGL low-poly arena | Ram four hunting rivals; manage body damage and boost | 5 knockouts |
 | **Boost Pitch** | WebGL low-poly pitch | Car football: jump, drift, boost and shoot | First to 5 goals |
@@ -24,8 +24,8 @@ pinned, unmodified VANILLAJS modules under `vendor/vanillajs/modules/`.
 
 The objectives are longer than the donor demo's (three stages, three laps, four
 knockouts and two laps) so a side event lasts a few minutes rather than one.
-A flat-out Horizon Tour takes well over a minute of simulated time; Vector Ring
-and Skyline Span take several minutes with contact and respawns.
+A flat-out Horizon Tour with constant nitro still takes over 80 s of simulated
+time; Vector Ring and Skyline Span take several minutes with contact and respawns.
 
 Skyline Span takes the *genre* of elevated stunt driving: a narrow course, real
 gaps, hard landings and the road itself as the opponent. The track, vehicles,

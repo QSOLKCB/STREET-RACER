@@ -11,7 +11,7 @@ export const ARCADE_STEP = 1 / 60;
 export const MODES = Object.freeze(['retro', 'circuit', 'derby', 'ball', 'stunt']);
 export const TRACK_LENGTH = 900;
 export const OBJECTIVES = Object.freeze({
-  retro: Object.freeze({ stages: 4, stageLength: 1500 }),
+  retro: Object.freeze({ stages: 5, stageLength: 1500 }),
   circuit: Object.freeze({ laps: 5 }),
   derby: Object.freeze({ knockouts: 5 }),
   ball: Object.freeze({ goals: 5 }),
@@ -120,8 +120,10 @@ function arenaBounds(p) {
 }
 function updateBots(w, dt) {
   for (const b of w.bots) {
-    if (b.cooldown > 60 && b.health === 0) { b.cooldown--; continue; }
-    if (b.health === 0) { b.health = 100; b.x = -25 + b.color * 15; b.z = 20; b.speed = 0; b.cooldown = 30; }
+    if (b.health === 0) {
+      if (b.cooldown > 60) { b.cooldown--; continue; }
+      b.health = 100; b.x = -25 + b.color * 15; b.z = 20; b.speed = 0; b.cooldown = 30;
+    } else if (b.cooldown > 0) b.cooldown--; // Contact immunity expires for living rivals too.
     const target = w.mode === 'circuit' ? RACE_GATES[b.checkpoint] :
       w.mode === 'ball' ? w.ball : w.player;
     const desired = Math.atan2(target.x - b.x, -(target.z - b.z));
@@ -162,10 +164,13 @@ function updateBall(w, dt) {
 }
 function stepRetro(w, input, dt) {
   const p = w.player, { stages, stageLength } = OBJECTIVES.retro;
+  const boosting = Boolean(input.boost) && p.boost > 0, limit = boosting ? 90 : 75;
   p.speed = clamp(p.speed + bounded(input.throttle) * 25 * dt -
-    (Math.abs(bounded(input.throttle)) < .01 ? p.speed * .35 * dt : 0), 0, 75);
-  if (input.boost && p.boost > 0) { p.speed = Math.min(90, p.speed + 35 * dt); p.boost = Math.max(0, p.boost - 20 * dt); }
+    (Math.abs(bounded(input.throttle)) < .01 ? p.speed * .35 * dt : 0), 0, 90);
+  if (boosting) { p.speed = Math.min(90, p.speed + 35 * dt); p.boost = Math.max(0, p.boost - 20 * dt); }
   else p.boost = Math.min(100, p.boost + 8 * dt);
+  // Boosted speed is kept while boosting and bleeds off gradually afterwards.
+  if (p.speed > limit) p.speed = Math.max(limit, p.speed - 45 * dt);
   p.x += bounded(input.steer) * (3.5 + p.speed * .08) * dt;
   if (Math.abs(p.x) > 5.6) {
     p.x = clamp(p.x, -6.3, 6.3); p.speed *= 1 - 1.4 * dt;
@@ -193,7 +198,7 @@ function recoverStunt(w) {
   w.event = 'TRACK FALL · RESPAWN -18 HP';
 }
 function stepStunt(w, input, dt) {
-  const p = w.player;
+  const p = w.player, previousY = p.y;
   vehicle(p, input, dt, 47);
   const s = -p.z;
   const track = s >= 0 ? stuntRoad(s) : null;
@@ -202,7 +207,9 @@ function stepStunt(w, input, dt) {
     // Grounded suspension follows the grade; a real gap removes support and
     // gravity takes over on the next fixed tick.
     if (p.grounded) { p.y = elevation; p.vy = 0; }
-    if (p.y <= elevation + .05 && p.vy <= 0) {
+    // A landing needs the car to arrive from above the deck (with a little
+    // suspension travel for rising ramps); a car already well below it keeps falling.
+    if (p.y <= elevation + .05 && p.vy <= 0 && (p.grounded || previousY >= elevation - 1.2)) {
       const impact = -p.vy;
       if (!p.grounded && impact > 12) {
         const damage = Math.round((impact - 12) * 2.5);

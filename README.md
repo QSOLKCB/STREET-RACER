@@ -80,7 +80,7 @@ The **Arcade** view runs five original side events that never touch your career:
 
 | Side event | Picture | Finish |
 | --- | --- | --- |
-| **Horizon Tour** | Canvas2D pseudo-3D highway with traffic and nitro | 4 stages, 6,000 m |
+| **Horizon Tour** | Canvas2D pseudo-3D highway with traffic and nitro | 5 stages, 7,500 m |
 | **Vector Ring** | Low-poly WebGL circuit, eight gates, four rivals | 5 laps |
 | **Impact Arena** | Demolition derby against hunting rivals | 5 knockouts |
 | **Boost Pitch** | Car football with jumps, drifts and boost | First to 5 goals |

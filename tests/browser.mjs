@@ -24,6 +24,9 @@ const server=http.createServer(async(req,res)=>{
 const receipt={status:'RUNNING',environment:'isolated hosted/headless Chromium',checks:[],errors:[],httpFailures:[],externalRequests:[],screenshots:[],limits:'Browser clock advances genuine RAF and user-input processing. Touch is emulated; no physical-device, human-listening or hardware-speed claim.'};
 let browser,context,page,url,origin,current='launch',racePicture,backup;
 const action=(name,p=page)=>p.locator(`[data-action="${name}"]:visible`);
+// Software-rendered WebGL can starve the real animation frames Playwright's stability
+// check waits on; fall back to a synthetic click on the same visible control.
+async function press(name,p=page){try{await action(name,p).click({timeout:5000});}catch{await action(name,p).dispatchEvent('click');}}
 const nav=(name,p=page)=>p.locator(`#navigation [data-view="${name}"]`);
 const snap=(p=page)=>p.evaluate(()=>globalThis.__streetRacer);
 const resources=state=>JSON.stringify({cash:state.cash,rep:state.rep,cars:state.cars,wins:state.wins,losses:state.losses,day:state.day,defeated:state.defeated});
@@ -65,9 +68,10 @@ async function importCareer(text,p=page){
 try{
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   url=`http://127.0.0.1:${server.address().port}/STREET-RACER/`;origin=new URL(url).origin;
-  // SwiftShader keeps the WebGL side events testable on hosted runners without a GPU.
-  // Canvas2D stays software-rasterized so repeated draws remain pixel-identical.
-  browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE||undefined,args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-accelerated-2d-canvas']});
+  // SwiftShader WebGL keeps the 3D side events testable on hosted runners without a GPU;
+  // compositing stays on the normal headless path. Canvas2D stays software-rasterized so
+  // repeated draws remain pixel-identical.
+  browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--disable-accelerated-2d-canvas']});
   receipt.browser=browser.version();
   context=await browser.newContext({viewport:{width:1440,height:1000},deviceScaleFactor:1.25,reducedMotion:'reduce',acceptDownloads:true});
   page=await openPage(context);
@@ -199,14 +203,14 @@ try{
       await page.evaluate(()=>window.dispatchEvent(new Event('blur')));const paused=await snap();assert.equal(paused.arcadePaused,true,`${mode} pauses on blur`);
       await advance(1000);assert.equal((await snap()).arcade.tick,paused.arcade.tick,'a paused side event does not advance');
       if(mode==='circuit'){
-        const [download]=await Promise.all([page.waitForEvent('download'),action('arcade-export').click()]);
+        const [download]=await Promise.all([page.waitForEvent('download'),press('arcade-export')]);
         const run=JSON.parse(await fs.readFile(await download.path(),'utf8'));
         assert.equal(run.format,'street-racer-arcade-run');assert.equal(run.mode,'circuit');assert.equal(run.step,1/60);assert.ok(run.inputs.length>60);
         receipt.arcade.push({mode,ticks:run.observation.tick,recordedInputs:run.inputs.length});
       }else receipt.arcade.push({mode,ticks:paused.arcade.tick});
-      await action('resume').click();await page.waitForFunction(()=>!__streetRacer.arcadePaused);
+      await press('resume');await page.waitForFunction(()=>!__streetRacer.arcadePaused);
       await page.keyboard.press('Escape');await page.waitForFunction(()=>__streetRacer.arcadePaused);
-      await action('arcade-exit').click();await page.waitForFunction(()=>!__streetRacer.arcade);
+      await press('arcade-exit');await page.waitForFunction(()=>!__streetRacer.arcade);
     }
     assert.equal(resources((await snap()).career),before,'side events never change the career');
     assert.equal((await snap()).view,'arcade');

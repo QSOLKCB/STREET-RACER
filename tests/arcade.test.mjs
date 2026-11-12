@@ -12,7 +12,7 @@ test('all five arcade modes initialise, carry longer objectives and reject inval
   assert.deepEqual(MODES, ['retro', 'circuit', 'derby', 'ball', 'stunt']);
   assert.throws(() => createArcade('none'), RangeError);
   assert.throws(() => stepArcade({ mode: 'retro' }), TypeError);
-  assert.equal(RETRO_DISTANCE, 6000);
+  assert.equal(RETRO_DISTANCE, 7500);
   assert.equal(OBJECTIVES.circuit.laps, 5); assert.equal(OBJECTIVES.stunt.laps, 3);
   assert.equal(OBJECTIVES.derby.knockouts, 5); assert.equal(OBJECTIVES.ball.goals, 5);
   for (const mode of MODES) {
@@ -51,7 +51,7 @@ test('hostile control values stay bounded and finite in every mode', () => {
   }
 });
 
-test('horizon tour counts four stages, impacts, boost and shoulder friction', () => {
+test('horizon tour counts five stages, impacts, boost and shoulder friction', () => {
   const w = createArcade('retro');
   stepArcade(w, { throttle: 1, boost: true }, ARCADE_STEP);
   assert.ok(w.player.speed > 0); assert.ok(w.player.boost < 100);
@@ -63,18 +63,18 @@ test('horizon tour counts four stages, impacts, boost and shoulder friction', ()
   w.player.speed = 60; stepArcade(w, { throttle: 1 });
   assert.ok(w.contacts >= 1);
   w.distance = 1499.9; w.player.speed = 70; stepArcade(w, { throttle: 1 });
-  assert.equal(w.player.lap, 1); assert.match(w.event, /STAGE 2 OF 4/);
+  assert.equal(w.player.lap, 1); assert.match(w.event, /STAGE 2 OF 5/);
   w.distance = RETRO_DISTANCE - .01; w.player.speed = 70;
   stepArcade(w, { throttle: 1 });
-  assert.equal(w.finished, true); assert.equal(w.won, true); assert.equal(w.player.lap, 3);
+  assert.equal(w.finished, true); assert.equal(w.won, true); assert.equal(w.player.lap, 4);
 });
 
-test('a flat-out horizon tour lasts well over a minute of simulated time', () => {
-  const w = createArcade('retro');
+test('a flat-out horizon tour with constant nitro still lasts over 80 s of simulated time', () => {
+  const w = createArcade('retro'); w.bots = [];
   let ticks = 0;
-  while (!w.finished && ticks++ < 60 * 600) stepArcade(w, { throttle: 1, boost: w.player.boost > 50 });
-  assert.equal(w.finished, true);
-  assert.ok(w.elapsed > 75, `elapsed ${w.elapsed}`);
+  while (!w.finished && ticks++ < 60 * 600) stepArcade(w, { throttle: 1, boost: true });
+  assert.equal(w.won, true, w.result);
+  assert.ok(w.elapsed > 80, `elapsed ${w.elapsed}`);
 });
 
 test('ordered circuit gates count five complete laps and stop stepping once finished', () => {
@@ -107,6 +107,51 @@ test('derby impacts disable rivals and five knockouts are achievable with health
   assert.equal(player.knockouts, 5);
   assert.ok(player.health > 0, 'five knockouts must be achievable with health remaining');
   assert.equal(fresh.result, 'DERBY CHAMPION'); assert.equal(fresh.won, true);
+});
+
+test('living rivals recover from contact immunity so repeated rams reach five knockouts', () => {
+  const w = createArcade('derby');
+  for (let i = 0; i < 10800 && !w.finished; i++) stepArcade(w, {});
+  assert.ok(w.contacts > 4, `rivals keep hitting a stationary player: ${w.contacts} contacts`);
+  assert.ok(w.bots.every(b => b.health === 0 || b.cooldown <= 18));
+  const ram = createArcade('derby'), rival = ram.bots[0], player = ram.player;
+  ram.bots = [rival]; rival.x = .5; rival.z = 0; rival.health = 100; rival.cooldown = 0;
+  let hits = 0;
+  for (let i = 0; i < 4000 && rival.health > 0; i++) {
+    player.x = 0; player.z = 0; player.vx = 0; player.vz = 0; player.speed = 20; player.cooldown = 0;
+    rival.x = .5; rival.z = 0; rival.vx = 0; rival.vz = 0; rival.speed = 0;
+    const before = ram.contacts; stepArcade(ram, { throttle: 1 }); if (ram.contacts > before) hits++;
+  }
+  assert.equal(rival.health, 0, 'a rival without manual cooldown resets is still disabled');
+  assert.ok(hits > 1 && hits < 12, `rival disabled after ${hits} separate contacts`);
+});
+
+test('retro boost accumulates toward 90 m/s and bleeds off afterwards', () => {
+  const w = createArcade('retro'); w.bots = [];
+  for (let i = 0; i < 180; i++) stepArcade(w, { throttle: 1 });
+  assert.ok(Math.abs(w.player.speed - 75) < 1e-9);
+  for (let i = 0; i < 120; i++) stepArcade(w, { throttle: 1, boost: true });
+  assert.ok(w.player.speed > 85, `boosted speed ${w.player.speed}`);
+  const boosted = w.player.speed;
+  stepArcade(w, { throttle: 1 });
+  assert.ok(w.player.speed < boosted && w.player.speed > 75, 'speed bleeds off gradually, not in one tick');
+  for (let i = 0; i < 180; i++) stepArcade(w, { throttle: 1 });
+  assert.ok(Math.abs(w.player.speed - 75) < 1e-9, `settled speed ${w.player.speed}`);
+});
+
+test('a car that fell under the stunt deck keeps falling and respawns instead of teleporting up', () => {
+  const w = createArcade('stunt');
+  Object.assign(w.player, { z: -195, y: 9, speed: 20, vz: -20, grounded: true });
+  let landedBelow = false, respawned = false;
+  for (let i = 0; i < 400 && !respawned; i++) {
+    const before = w.player.y;
+    stepArcade(w, { throttle: .01 });
+    if (w.event.startsWith('TRACK FALL')) respawned = true;
+    else if (before < 0 && w.player.y > before + 3) landedBelow = true;
+  }
+  assert.equal(landedBelow, false, 'no upward teleport onto the far platform');
+  assert.equal(respawned, true);
+  assert.ok(w.player.health < 100);
 });
 
 test('car football awards a goal only inside the mouth and ends at five', () => {
