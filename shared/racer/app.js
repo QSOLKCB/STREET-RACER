@@ -6,6 +6,7 @@ import {advanceRaceFrame} from './frame.js';
 import {render,W,H} from './renderer.js';
 import {createRaceAudio} from './audio.js';
 import {createSprintRenderer} from './webgl.js';
+import {loadTrackFromSession,TRACK_STORAGE_KEY,FOUNDRY_TOTAL,FOUNDRY_FORKS} from './foundry.js';
 
 const mode=document.body.dataset.mode;
 if(!Object.hasOwn(MODES,mode))throw new Error('Invalid game mode');
@@ -17,10 +18,18 @@ const trackSelect=$('track'),carSelect=$('vehicle'),overlay=$('overlay'),heading
   description=$('overlay-description'),start=$('start'),sound=$('sound'),pause=$('pause'),
   status=$('status'),speed=$('speed'),lap=$('lap'),rank=$('rank'),health=$('health'),nitro=$('nitro'),
   ammo=$('ammo'),distance=$('distance'),event=$('event'),timer=$('timer'),
-  sector=$('sector'),route=$('route');
+  sector=$('sector'),route=$('route'),steerDisplay=$('steer'),
+  packDisplay=$('track-name-display'),clearPack=$('clear-pack');
 const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:0});
 const audio=createRaceAudio(),held=new Set();
-let race=createRace({mode}),last=null,playing=false,frameId=null,messageUntil=0;
+let customPack=null,packError='';
+if(mode==='coast'||mode==='sprint'){
+  try{customPack=loadTrackFromSession(globalThis.sessionStorage);}
+  catch(error){packError='Custom track rejected: '+error.message;}
+}
+function newRace(){return createRace({mode,track:trackSelect.value||settings.defaultTrack,
+  car:carSelect.value||(settings.combat?'bruiser':'comet'),pack:customPack});}
+let race=createRace({mode,pack:customPack}),last=null,playing=false,frameId=null,messageUntil=0;
 const three=$('webgl-view');
 let scene3d=null;
 if(three){
@@ -51,13 +60,15 @@ $('title').textContent=settings.title;$('subtitle').textContent=settings.subtitl
 $('mode').textContent=settings.kind.toUpperCase();
 if(!settings.combat){$('ammo-box').hidden=true}
 if(settings.kind!=='checkpoint'){$('timer-box').hidden=true}
-if(settings.kind==='checkpoint'){
-  $('objective').textContent='3 LEFT / RIGHT forks · collect +20s checkpoints';
-}
-if(settings.kind==='sprint'){
-  $('objective').textContent='Native WebGL · 3.6 km · 4 scenic gates';
-  trackSelect.parentElement.hidden=true; // This authored 3D route has one course.
-}
+if(settings.kind==='checkpoint')
+  $('objective').textContent='19.2 KM · 12 PHYSICAL FORKS · 15 CHECKPOINTS';
+if(settings.kind==='sprint')
+  $('objective').textContent='NATIVE WEBGL · 19.2 KM · AUTHORED CENTRELINE';
+if(settings.kind==='checkpoint'||settings.kind==='sprint')
+  trackSelect.parentElement.hidden=true; // Pack's environment replaces palette selection.
+if(packDisplay)packDisplay.textContent=race.pack?.name??'BUILT-IN CIRCUIT';
+if(clearPack)clearPack.hidden=!customPack;
+if(packError)showOverlay('INVALID TRACK',packError+' · Using the built-in safe track.','START ENGINE');
 if(sector)sector.closest('.metric').hidden=!['checkpoint','sprint'].includes(settings.kind);
 if(route)route.closest('.metric').hidden=settings.kind!=='checkpoint';
 if(settings.combat)$('objective').textContent='Survive · F to fire · take down rivals';
@@ -76,7 +87,7 @@ function pauseGame(reason='PAUSED'){
 }
 function startGame(){
   if(race.status!=='running'||race.ticks===0){
-    race=createRace({mode,track:trackSelect.value,car:carSelect.value});
+    race=newRace();
     clock.reset();messageUntil=0;event.textContent='';
   }
   playing=true;clock.setPaused(false);last=null;clearInput();
@@ -84,8 +95,18 @@ function startGame(){
 }
 start.addEventListener('click',()=>{startGame()});
 pause.addEventListener('click',()=>playing?pauseGame():startGame());
-$('restart').addEventListener('click',()=>{race=createRace({mode,track:trackSelect.value,car:carSelect.value});
-  clock.reset();playing=false;pauseGame();startGame()});
+$('restart').addEventListener('click',()=>{
+  race=newRace();clock.reset();playing=false;audio.silence();startGame();
+});
+clearPack?.addEventListener('click',()=>{
+  try{sessionStorage.removeItem(TRACK_STORAGE_KEY);}
+  catch(error){event.textContent='Storage unavailable: '+error.message;return;}
+  customPack=null;race=newRace();playing=false;clock.reset();
+  clock.setPaused(true);clearInput();audio.silence();
+  if(packDisplay)packDisplay.textContent=race.pack?.name??'BUILT-IN CIRCUIT';
+  clearPack.hidden=true;
+  showOverlay('BUILT-IN TRACK RESTORED','Custom track data was cleared from this tab.','START ENGINE');
+});
 sound.addEventListener('click',async()=>{
   const enabled=await audio.setSound(!audio.enabled);
   sound.textContent=enabled?'SOUND ON':'SOUND OFF';sound.setAttribute('aria-pressed',String(enabled));
@@ -94,8 +115,9 @@ document.addEventListener('keydown',e=>{
   if(e.code==='KeyP'||e.code==='Escape'){
     if(!e.repeat){playing?pauseGame():startGame()}e.preventDefault();return;
   }
-  if(e.code==='KeyR'&&!e.repeat){race=createRace({mode,track:trackSelect.value,car:carSelect.value});
-    clock.reset();playing=false;startGame();return;}
+  if(e.code==='KeyR'&&!e.repeat){
+    race=newRace();clock.reset();playing=false;audio.silence();startGame();return;
+  }
   const action=keyMap[e.code];
   if(action&&overlay.hidden){held.add(action);e.preventDefault()}
 });
@@ -126,14 +148,13 @@ window.addEventListener('pageshow',pageEvent=>{
 });
 function updateHud(now,frameEvents=[]){
   speed.textContent=String(speedKph(race));
-  lap.textContent=settings.kind==='checkpoint'?String(Math.min(4,race.route.length+1))+' / 4':
-    settings.kind==='sprint'?String(Math.min(4,race.checkpoints+1))+' / 4':
-    String(race.lap)+' / '+settings.laps;
-  if(sector)sector.textContent=settings.kind==='checkpoint'?
-    String(Math.min(4,race.route.length+1))+' / 4':
-    String(Math.min(4,race.checkpoints+1))+' / 4';
+  const stage=String(Math.min(16,Math.floor(distanceMeters(race)/(FOUNDRY_TOTAL/16))+1))+' / 16';
+  lap.textContent=race.pack?stage:String(race.lap)+' / '+settings.laps;
+  if(sector)sector.textContent=stage;
   if(route)route.textContent=race.route.length?
-    race.route.map(choice=>choice==='left'?'L':'R').join(' · '):'CHOOSE';
+    race.route.slice(-3).map(choice=>choice==='left'?'L':'R').join('·')+
+      ' ('+race.route.length+'/'+FOUNDRY_FORKS+')':'CHOOSE';
+  if(steerDisplay)steerDisplay.textContent=(race.laneQ/65536).toFixed(2);
   rank.textContent=String(race.position)+' / '+(race.rivals.length+1);
   health.textContent=String(race.health)+'%';nitro.textContent=String(Math.ceil(race.boost/6))+'%';
   ammo.textContent=String(race.ammo);distance.textContent=Math.floor(distanceMeters(race))+' / '+finishMeters(race)+' m';
@@ -166,10 +187,10 @@ function frame(now){
   paintRace();updateHud(now,frameEvents);
 }
 const clampDelta=t=>Math.max(0,Math.min(.25,t));
-showOverlay(settings.title,settings.kind==='circuit'?'Three laps, rival supercars, mountain passes and earned nitro.':
-  settings.kind==='checkpoint'?'Four dramatic stages, three lane-selected forks and a ticking checkpoint clock.':
-  settings.kind==='sprint'?'A 3.6 km winding WebGL coastal road with moving rivals, scenic gates and a strict on-road finish.':
-    'Armoured road combat, limited ammunition and rival takedowns.','START ENGINE');
+showOverlay(settings.title,settings.kind==='circuit'?'A 14.4 km three-lap supercar tour. A/D or left/right steer the vehicle, not the camera.':
+  settings.kind==='checkpoint'?'A 19.2 km endurance route with 12 real, smooth centreline forks and 15 checkpoint extensions. Steer left or right at signs.':
+  settings.kind==='sprint'?'19.2 km of winding native WebGL roadway with authored curves, moving rivals and a strict on-road finish.':
+    '12 km of armed road combat; steer to overtake rivals, boost and survive.','START ENGINE');
 // A direct deep link must install the same root-scoped, content-addressed PWA
 // as the legacy game. Registration is local-only and optional for file:// previews.
 if('serviceWorker' in navigator &&

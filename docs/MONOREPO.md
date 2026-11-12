@@ -44,3 +44,22 @@ The fifth package is `games/coastal-sprint/`. Its `shared/racer/webgl.js` compos
 COAST RUN commits three route choices at 1,300 m thresholds. Forks change palette and downstream *rendered* road curvature, not independent physical junction topology. Rivals perform deterministic defensive lane changes. Longitudinal swept contact is 1D detection, **not** full 3D rigid-body physics.
 
 VANILLAJS reference: merged PR #84 head `5bc76a58d8d87284d8138f3ee5bd0f35dbb54bbe`. Existing SHA-256-pinned vendor code remains unchanged.
+
+## RACING-003 — long-road and authoring upgrade
+
+RACING-003 adds `games/track-foundry/` (author/editor + interactive gate
+circuit), `shared/racer/foundry.js` (VANILLAJS bridge) and
+`shared/racer/circuit.js` (Q16.16 circuit mode). It does not move or change
+the original root career package.
+
+The main COAST RUN and COASTAL SPRINT now use a source-pinned authored
+4 × 1,200 m pack **repeated in four continuous legs** (19.2 km).
+Every leg contributes three new route choices; the physical world X centreline
+depends on the complete ordered route history, and the renderer and width
+rules sample those same functions. A fork changes the following section's
+physical centreline smoothly rather than only its color. The editor's
+eight polygon gates drive both its circuit road and checkpoint targets.
+
+All packs are strict, immutable copies of the upstream inert-data format.
+The only persistence is explicit sessionStorage hand-off after the editor
+validates a pack; no automatic upload or executable mod import is allowed.

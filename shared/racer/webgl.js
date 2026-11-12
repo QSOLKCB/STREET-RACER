@@ -7,6 +7,8 @@ import {quatMultiply} from '../../vendor/vanillajs/modules/math/index.js';
 import {Q} from './sim.js';
 import {sprintCenter,sprintHeading,SPRINT_METERS,SPRINT_ROAD_HALF_WIDTH_METRES,
   sprintLateralMetres} from './course.js';
+import {foundryCenter,foundryHeading,foundryWidth,foundryLateralMetres,
+  FOUNDRY_TOTAL} from './foundry.js';
 
 const COLORS=Object.freeze({
   asphalt:[.13,.17,.23],asphaltAlt:[.16,.20,.25],
@@ -46,21 +48,27 @@ function roadside(out,cx,z,yaw,side,stage,index){
   }
 }
 
-export function sprintSceneGeometry(){
+export function sprintSceneGeometry(pack=null,route=[],windowStart=0){
   const out=[];
-  // Fixed-size, bounded source-generated mesh: create once on load, then
-  // only update the moving car mesh each frame (OPT invariant reuse).
-  for(let m=0;m<SPRINT_METERS;m+=20){
-    const at=m+10,x=sprintCenter(at),z=-at,yaw=sprintHeading(at);
-    const stage=Math.min(3,Math.floor(at/900));
-    const ground=stage===0?COLORS.green:stage===1?COLORS.sand:stage===2?COLORS.ridge:COLORS.green;
+  // Existing un-authored scene remains available for compatibility tests.
+  // RACING-003 authored scenes are a bounded 1.4 km streaming window; avoid
+  // allocating the entire 19.2 km course as one static GPU buffer.
+  const first=pack?Math.floor(Math.max(0,windowStart)/20)*20:0;
+  const limit=pack?Math.min(FOUNDRY_TOTAL,first+1400):SPRINT_METERS;
+  for(let m=first;m<limit;m+=20){
+    const at=m+10,x=pack?foundryCenter(pack,at,route):sprintCenter(at),
+      z=-at,yaw=pack?foundryHeading(pack,at,route):sprintHeading(at);
+    const half=pack?foundryWidth(pack,at):SPRINT_ROAD_HALF_WIDTH_METRES;
+    const stage=Math.min(3,Math.floor(at/(pack?1200:900))%4);
+    const ground=pack?({coast:COLORS.green,canyon:COLORS.sand,forest:COLORS.tree,night:COLORS.ridge})[pack.environment]:
+      stage===0?COLORS.green:stage===1?COLORS.sand:stage===2?COLORS.ridge:COLORS.green;
     oriented(out,x,-.78,z,185,.30,20,ground,yaw);
-    oriented(out,x,-.08,z,2*SPRINT_ROAD_HALF_WIDTH_METRES,.26,20.25,m%40===0?COLORS.asphalt:COLORS.asphaltAlt,yaw);
+    oriented(out,x,-.08,z,2*half,.26,20.25,m%40===0?COLORS.asphalt:COLORS.asphaltAlt,yaw);
     for(const side of [-1,1]){
-      const edge=side*(SPRINT_ROAD_HALF_WIDTH_METRES-.3);
+      const edge=side*(half-.3);
       oriented(out,x+Math.cos(yaw)*edge,.072,z+Math.sin(yaw)*edge,.32,.05,20,
         m%80===0?COLORS.edge:side<0?COLORS.cyan:COLORS.pink,yaw);
-      const shoulder=side*(SPRINT_ROAD_HALF_WIDTH_METRES+1);
+      const shoulder=side*(half+1);
       oriented(out,x+Math.cos(yaw)*shoulder,-.16,z+Math.sin(yaw)*shoulder,2.2,.1,20,ground,yaw);
     }
     if(m%60===0){
@@ -75,15 +83,20 @@ export function sprintSceneGeometry(){
       roadside(out,x,z,yaw,1,stage,m/100);
     }
   }
-  for(let m=900;m<=SPRINT_METERS;m+=900){
-    const x=sprintCenter(m),z=-m,yaw=sprintHeading(m);
+  const interval=pack?1200:900;
+  for(let m=interval;m<=(pack?FOUNDRY_TOTAL:SPRINT_METERS);m+=interval){
+    if(m<first||m>limit)continue;
+    const x=pack?foundryCenter(pack,m,route):sprintCenter(m),
+      z=-m,yaw=pack?foundryHeading(pack,m,route):sprintHeading(m),
+      half=pack?foundryWidth(pack,m):SPRINT_ROAD_HALF_WIDTH_METRES;
     for(const side of [-1,1]){
-      const px=x+Math.cos(yaw)*side*(SPRINT_ROAD_HALF_WIDTH_METRES+1),
-        pz=z+Math.sin(yaw)*side*(SPRINT_ROAD_HALF_WIDTH_METRES+1);
+      const px=x+Math.cos(yaw)*side*(half+1),
+        pz=z+Math.sin(yaw)*side*(half+1);
       oriented(out,px,4.2,pz,.85,8.4,.85,side===1?COLORS.pink:COLORS.cyan,yaw);
     }
-    oriented(out,x,8.5,z,30,1,.8,m===SPRINT_METERS?COLORS.lamp:COLORS.cyan,yaw);
-    oriented(out,x,.015,z,2*SPRINT_ROAD_HALF_WIDTH_METRES,.055,1.5,m===SPRINT_METERS?COLORS.lamp:COLORS.edge,yaw);
+    const isFinish=m===(pack?FOUNDRY_TOTAL:SPRINT_METERS);
+    oriented(out,x,8.5,z,half*2+4,1,.8,isFinish?COLORS.lamp:COLORS.cyan,yaw);
+    oriented(out,x,.015,z,2*half,.055,1.5,isFinish?COLORS.lamp:COLORS.edge,yaw);
   }
   return out;
 }
@@ -92,8 +105,10 @@ function hexRgb(hex){
   return [1,3,5].map(at=>parseInt(hex.slice(at,at+2),16)/255);
 }
 function addCar(out,s,lane,d,color,player=false){
-  const heading=sprintHeading(d),cx=sprintCenter(d),c=Math.cos(heading),sn=Math.sin(heading);
-  const lateral=sprintLateralMetres(lane);
+  const heading=s.pack?foundryHeading(s.pack,d,s.route):sprintHeading(d),
+    cx=s.pack?foundryCenter(s.pack,d,s.route):sprintCenter(d),
+    c=Math.cos(heading),sn=Math.sin(heading);
+  const lateral=s.pack?foundryLateralMetres(s.pack,d,lane):sprintLateralMetres(lane);
   const x=cx+c*lateral,z=-d+sn*lateral;
   const metal=hexRgb(color);
   // Every body-part offset must rotate into the car's local forward axis;
@@ -129,17 +144,31 @@ export function sprintTrafficGeometry(s){
 
 export function createSprintRenderer(canvas){
   const renderer=new Renderer(canvas);
-  const road=renderer.mesh(sprintSceneGeometry());
+  const road=renderer.mesh([]);
   const traffic=renderer.mesh([]);
-  let disposed=false;
+  let disposed=false,lastWindow=-1,lastRoute='',lastPack=null;
   return {
     draw(s){
       if(disposed)throw new Error('3D scene disposed');
-      const d=s.distanceQ/Q,heading=sprintHeading(d),lateral=sprintLateralMetres(s.laneQ/Q);
-      const cx=sprintCenter(d)+Math.cos(heading)*lateral;
-      const z=-d+Math.sin(heading)*lateral;
-      const lookX=sprintCenter(Math.min(SPRINT_METERS,d+85))+
-        lateral*Math.cos(sprintHeading(Math.min(SPRINT_METERS,d+85)));
+      const d=s.distanceQ/Q,route=s.route.join(',');
+      // OPT invariant reuse: geometry is remeshed only every 200 m or after
+      // an authored fork decision. Render update is independent of input ticks.
+      const windowIndex=Math.floor(Math.max(0,d)/200);
+      if(lastWindow!==windowIndex||lastRoute!==route||lastPack!==s.pack){
+        renderer.update(road,sprintSceneGeometry(s.pack,s.route,windowIndex*200));
+        lastWindow=windowIndex;lastRoute=route;lastPack=s.pack;
+      }
+      const heading=s.pack?foundryHeading(s.pack,d,s.route):sprintHeading(d),
+        lateral=s.pack?foundryLateralMetres(s.pack,d,s.laneQ/Q):
+          sprintLateralMetres(s.laneQ/Q);
+      const center=s.pack?foundryCenter(s.pack,d,s.route):sprintCenter(d);
+      const normal=Math.cos(heading),tangent=Math.sin(heading);
+      // Follow 35% of lateral motion so A/D visibly translates the vehicle,
+      // rather than keeping it centered as if the road were on rails.
+      const cx=center+normal*lateral*.35,z=-d+tangent*lateral*.35;
+      const ahead=Math.min(s.pack?FOUNDRY_TOTAL:SPRINT_METERS,d+85);
+      const lookX=(s.pack?foundryCenter(s.pack,ahead,s.route):sprintCenter(ahead))+
+        lateral*.12*Math.cos(s.pack?foundryHeading(s.pack,ahead,s.route):sprintHeading(ahead));
       const yaw=Math.atan2(lookX-cx,75);
       const qYaw=[0,-Math.sin(yaw/2),0,Math.cos(yaw/2)];
       const qPitch=[Math.sin(-.27),0,0,Math.cos(-.27)];

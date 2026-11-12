@@ -7,3 +7,10 @@ Launch [index.html](index.html) from the built site or an HTTP server at the rep
 ## RACING-002 handling
 
 Boost now exceeds the normal speed cap and loses momentum gradually on release. Rivals change lanes deterministically; the Q16.16 contact detector tests longitudinal motion during each tick rather than only at its endpoint.
+
+## RACING-003
+
+The original arcade supercar tour is extended to 14.4 km across three laps.
+A/D and left/right steering are more responsive, and the car moves visibly
+across the pseudo-3D view. Track Foundry also includes a separately drivable
+Q16.16 circuit editor with eight drag-editable gates.

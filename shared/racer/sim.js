@@ -2,16 +2,21 @@
 // Integer Q16.16 race core. Fixed 60 Hz steps; no DOM, wall clock, or randomness in tick().
 import {seededRandom} from '../../vendor/vanillajs/modules/math/index.js';
 import {modeSettings} from './config.js';
-import {TOUR_STAGE_METERS,TOUR_STAGES,sweptLongitudinalContact,
-  SPRINT_OFFROAD_LANE,SPRINT_FINISH_LANE} from './course.js';
+import {sweptLongitudinalContact,SPRINT_OFFROAD_LANE,SPRINT_FINISH_LANE} from './course.js';
+import {starterTrack,validateTrack,FOUNDRY_TOTAL,FOUNDRY_FORKS,
+  foundryForkAt,foundryChoice} from './foundry.js';
 export const Q=65536, HZ=60;
 export const q=n=>Math.round(n*Q);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const isInt=n=>Number.isSafeInteger(n);
 function boundedSeed(seed){if(!Number.isInteger(seed)||seed<0||seed>0xffffffff)throw new RangeError('seed must be uint32');return seed}
-export function createRace({mode='supercar',track,car,seed=2026}={}){
+export function createRace({mode='supercar',track,car,seed=2026,pack=null}={}){
   const setup=modeSettings(mode,track,car),random=seededRandom(boundedSeed(seed));
-  const m=setup.mode, rivals=Array.from({length:m.rivals},(_,i)=>({
+  const m=setup.mode;
+  if(pack!==null&&!['coast','sprint'].includes(m.id))
+    throw new RangeError('authored tracks apply only to coast and sprint modes');
+  const authored=['coast','sprint'].includes(m.id)?validateTrack(pack??starterTrack()):null;
+  const rivals=Array.from({length:m.rivals},(_,i)=>({
     id:i+1,distanceQ:q(110+i*110),laneQ:q((random()-.5)*1.45),
     speedQ:q(47+random()*27),color:['#f4a659','#75dbdc','#d583cf','#eee09a','#82cb76','#fb7778','#dbd8df'][i],
     integrity:2,wrecked:false
@@ -19,8 +24,8 @@ export function createRace({mode='supercar',track,car,seed=2026}={}){
   return {mode:m.id,track:setup.track.id,car:setup.car.id,seed,status:'running',ticks:0,
     distanceQ:0,speedQ:0,laneQ:0,laneVQ:0,health:100,boost:600,
     nitro:0,ammo:m.combat?12:0,shots:0,knockouts:0,collisionCooldown:0,shotCooldown:0,
-    checkpoints:0,timeLeft:m.kind==='checkpoint'?90*HZ:null,lap:1,position:m.rivals+1,
-    score:0,rivals,lastEvent:'',events:[],route:[]};
+    checkpoints:0,timeLeft:m.kind==='checkpoint'?300*HZ:null,lap:1,position:m.rivals+1,
+    score:0,rivals,lastEvent:'',events:[],route:[],pack:authored};
 }
 export const distanceMeters=s=>s.distanceQ/Q;
 export const speedKph=s=>Math.round(s.speedQ/Q*3.6);
@@ -52,8 +57,11 @@ export function tickRace(s,input={}){
     Math.max(q(car.speed),s.speedQ-Math.trunc(30*Q/HZ));
   s.speedQ=clamp(s.speedQ+Math.trunc(acceleration*Q/HZ),0,cap);
   if(useBoost)s.boost--; else if(s.boost<600&&s.ticks%3===0)s.boost++;
-  const steeringForce=Math.round(steer*(180+s.speedQ/Q*1.7)*car.handling);
-  s.laneVQ=Math.trunc(s.laneVQ*84/100)+steeringForce;
+  // RACING-003: responsive steering at 60 Hz. The original 180-unit force
+  // barely registered in a brief keyboard tap, especially with chase-camera
+  // centering. Preserve fully integer Q16.16 state and bounded lateral speed.
+  const steeringForce=Math.round(steer*(380+s.speedQ/Q*2.8)*car.handling);
+  s.laneVQ=Math.trunc(s.laneVQ*80/100)+steeringForce;
   s.laneQ=clamp(s.laneQ+s.laneVQ,-q(1.4),q(1.4));
   if(Math.abs(s.laneQ)>=q(1.4))s.laneVQ=0;
   if(offroad&&s.ticks%40===0)s.health=Math.max(0,s.health-1);
@@ -98,29 +106,29 @@ export function tickRace(s,input={}){
     }else{emit('SHOT MISSED');}
   }
   if(mode.combat&&s.ticks%540===0)s.ammo=Math.min(12,s.ammo+2);
-  if(mode.kind==='checkpoint'){
-    const segment=q(TOUR_STAGE_METERS);
-    const crossed=Math.min(TOUR_STAGES-1,Math.floor(s.distanceQ/segment));
-    while(s.route.length<crossed){
-      const choice=s.laneQ<0?'left':'right';
+  if(s.pack){
+    // Both scenic modes now run four continuous source-owned 4.8 km legs.
+    // Exactly 3 forks per leg x 4 = 12 ordered decisions. There is
+    // no fork at inter-leg seams; all 16 sections remain drivable.
+    while(s.route.length<FOUNDRY_FORKS&&
+        s.distanceQ>=q(foundryForkAt(s.route.length))){
+      const choice=foundryChoice(s.pack,s.route,s.laneQ/Q);
       s.route.push(choice);
-      emit('FORK '+choice.toUpperCase()+' · STAGE '+(s.route.length+1));
+      emit('FORK '+choice.toUpperCase()+' · '+s.route.length+'/'+FOUNDRY_FORKS);
       s.score+=150;
     }
+    const crossed=Math.min(15,Math.floor(s.distanceQ/q(FOUNDRY_TOTAL/16)));
     if(crossed>s.checkpoints){
-      // Each stage checkpoint grants one extension, even if a frame skips
-      // more than one threshold during catch-up.
       const earned=crossed-s.checkpoints;
-      s.checkpoints=crossed;s.timeLeft+=earned*20*HZ;
-      s.score+=earned*250;emit('CHECKPOINT +'+(20*earned)+'s');
+      s.checkpoints=crossed;s.score+=earned*250;
+      if(mode.kind==='checkpoint'){
+        s.timeLeft+=earned*20*HZ;
+        emit('CHECKPOINT +'+20*earned+'s');
+      }else{
+        emit('SCENIC GATE '+crossed+' / 16');
+      }
     }
-    s.timeLeft--;
-  }else if(mode.kind==='sprint'){
-    const crossed=Math.min(3,Math.floor(s.distanceQ/q(900)));
-    if(crossed>s.checkpoints){
-      const earned=crossed-s.checkpoints;s.checkpoints=crossed;
-      s.score+=earned*300;emit('SCENIC GATE '+crossed+' / 4');
-    }
+    if(mode.kind==='checkpoint')s.timeLeft--;
   }
   s.lap=Math.min(mode.laps,1+Math.floor(s.distanceQ/q(mode.courseMeters)));
   s.position=1+s.rivals.filter(r=>!r.wrecked&&r.distanceQ>s.distanceQ).length;

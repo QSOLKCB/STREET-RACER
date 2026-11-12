@@ -10,7 +10,11 @@ import {TOUR_STAGE_METERS,TOUR_STAGES,sprintCenter,sprintHeading,tourPalette,rou
   SPRINT_TYRE_HALF_WIDTH_METRES,SPRINT_LANE_SCALE_METRES,
   SPRINT_FINISH_LANE,SPRINT_OFFROAD_LANE,sprintLateralMetres} from '../shared/racer/course.js';
 import {sprintSceneGeometry,sprintTrafficGeometry} from '../shared/racer/webgl.js';
-import {project} from '../shared/racer/renderer.js';
+import {project,playerScreenX} from '../shared/racer/renderer.js';
+import {starterTrack,validateTrack,parseTrackJSON,serializeTrack,foundryCenter,
+  foundryWidth,foundryHeading,foundryForkAt,foundryLeg,
+  FOUNDRY_TOTAL,FOUNDRY_FORKS,foundryLateralMetres} from '../shared/racer/foundry.js';
+import {createCircuit,tickCircuit,circuitSnapshot} from '../shared/racer/circuit.js';
 const accelerate={accelerate:true,steer:0,boost:false,fire:false};
 test('all modes start with different contracts and bounded Q16 state',()=>{
   for(const mode of Object.keys(MODES)){
@@ -46,7 +50,7 @@ test('combat consumes limited ammunition and respects cooldown',()=>{
   assert.ok(s.rivals.every(r=>r.integrity>=0&&r.integrity<=2));
 });
 test('checkpoint time is finite and eventually loses idle driver',()=>{
-  const s=createRace({mode:'coast'});for(let i=0;i<90*60+1;i++)tickRace(s,{});
+  const s=createRace({mode:'coast'});for(let i=0;i<300*60+1;i++)tickRace(s,{});
   assert.equal(s.status,'lost');assert.equal(s.lastEvent,'TIME EXPIRED');
 });
 test('race cannot advance after terminal state',()=>{
@@ -127,7 +131,7 @@ test('RACING-002 all eight Scenic Tour histories advance distinct palettes and c
       assert.ok(race.events.includes('CHECKPOINT +20s'));
       before=tourPalette(race.route,race.track).id;
     }
-    assert.equal(race.timeLeft,90*60+3*20*60-3);
+    assert.equal(race.timeLeft,300*60+3*20*60-3);
   }
   for(const previous of [[],['left'],['right'],['left','right']]){
     const left=tourPalette([...previous,'left']).id;
@@ -178,14 +182,14 @@ test('RACING-002 lane-changing rivals replay identically without external random
 
 test('RACING-002 3D sprint gates and off-road finish require a valid renewed approach',()=>{
   const race=createRace({mode:'sprint',seed:12});
-  race.distanceQ=Math.round(899.5*Q);race.speedQ=90*Q;
+  race.distanceQ=Math.round(1199.5*Q);race.speedQ=90*Q;
   tickRace(race,{accelerate:true});
   assert.equal(race.checkpoints,1);
-  assert.ok(race.events.includes('SCENIC GATE 1 / 4'));
-  race.distanceQ=Math.round(3599.5*Q);race.speedQ=90*Q;race.laneQ=Math.round(1.2*Q);
+  assert.ok(race.events.includes('SCENIC GATE 1 / 16'));
+  race.distanceQ=Math.round((FOUNDRY_TOTAL-.5)*Q);race.speedQ=90*Q;race.laneQ=Math.round(1.2*Q);
   tickRace(race,{accelerate:true});
   assert.equal(race.status,'running');
-  assert.equal(race.distanceQ,3590*Q);
+  assert.equal(race.distanceQ,(FOUNDRY_TOTAL-10)*Q);
   assert.ok(race.events.includes('FINISH GATE MISSED · RETURN TO ROAD'));
   race.laneQ=0;race.laneVQ=0;race.speedQ=90*Q;
   for(let i=0;i<35&&race.status==='running';i++)tickRace(race,{accelerate:true});
@@ -254,4 +258,109 @@ test('RACING-002 road paint, tyres, and Q16.16 sprint penalties share a physical
   const bad=createRace({mode:'sprint'});bad.laneQ=Math.round(offroad*Q);bad.speedQ=90*Q;
   tickRace(bad,{accelerate:true});
   assert.ok(bad.speedQ<=52*Q,'off-road lane should trigger the slow shoulder penalty');
+});
+
+test('RACING-003 pins strict VANILLAJS track-v1 schema and rejects malformed input',()=>{
+  const pack=starterTrack(),encoded=serializeTrack(pack);
+  assert.equal(pack.format,'qsol.vanillajs.track.v1');
+  assert.deepEqual(parseTrackJSON(encoded),pack);
+  assert.deepEqual(validateTrack(JSON.parse(encoded)),pack);
+  assert.ok(Object.isFrozen(pack)&&Object.isFrozen(pack.sections));
+  const invalid=JSON.parse(encoded);invalid.sections[0].width=2;
+  assert.throws(()=>validateTrack(invalid),RangeError);
+  assert.throws(()=>parseTrackJSON('x'.repeat(17000)),RangeError);
+  const getter=JSON.parse(encoded);
+  Object.defineProperty(getter.sections,'0',{get(){throw Error('hostile getter executed')},enumerable:true});
+  assert.throws(()=>validateTrack(getter),/accessor/);
+});
+
+test('RACING-003 all 12 authored route forks change world-space geometry continuously',()=>{
+  const pack=starterTrack();let history=[];
+  assert.equal(FOUNDRY_TOTAL,19200);
+  assert.equal(FOUNDRY_FORKS,12);
+  for(let i=0;i<FOUNDRY_FORKS;i++){
+    const at=foundryForkAt(i);
+    assert.ok(Number.isSafeInteger(at));
+    const before=foundryCenter(pack,at-.0001,history);
+    const seam=foundryCenter(pack,at,history);
+    assert.ok(Math.abs(before-seam)<.02);
+    const left=foundryCenter(pack,at+240,[...history,'left']);
+    const right=foundryCenter(pack,at+240,[...history,'right']);
+    assert.ok(Math.abs(left-right)>4,'left/right must be physically divergent at fork '+i);
+    history.push(i%2?'right':'left');
+  }
+  for(let leg=1;leg<4;leg++){
+    const boundary=leg*4800;
+    const before=foundryCenter(pack,boundary-.0001,history);
+    const after=foundryCenter(pack,boundary+.0001,history);
+    assert.ok(Math.abs(before-after)<.02,'road cannot teleport at leg seams');
+    assert.ok(Math.abs(foundryWidth(pack,boundary-1)-foundryWidth(pack,boundary+1))<.08);
+  }
+  assert.equal(foundryLeg(12000).leg,2);
+  assert.ok(Number.isFinite(foundryHeading(pack,4700,history)));
+  assert.throws(()=>foundryCenter(pack,100,['bad']),TypeError);
+  assert.throws(()=>foundryForkAt(12),RangeError);
+});
+
+test('RACING-003 physical road and player renderer respond to A/D steering',()=>{
+  for(const mode of ['coast','sprint','supercar','wasteland']){
+    const left=createRace({mode}),right=createRace({mode});
+    for(let i=0;i<32;i++){
+      tickRace(left,{accelerate:true,steer:-1});
+      tickRace(right,{accelerate:true,steer:1});
+    }
+    assert.ok(left.laneQ< -Math.round(.25*Q),mode+' must turn left');
+    assert.ok(right.laneQ>Math.round(.25*Q),mode+' must turn right');
+    assert.ok(playerScreenX(left)<480-30,mode+' should visibly move left on Canvas');
+    assert.ok(playerScreenX(right)>480+30,mode+' should visibly move right on Canvas');
+    if(left.pack){
+      const d=left.distanceQ/Q;
+      const width=foundryWidth(left.pack,d),offset=foundryLateralMetres(left.pack,d,left.laneQ/Q);
+      assert.ok(Math.abs(offset)<=width*1.5,'bounded road lateral displacement');
+    }
+  }
+});
+
+test('RACING-003 endurance distances and checkpoint clock accommodate full courses',()=>{
+  assert.equal(finishMeters(createRace({mode:'coast'})),19200);
+  assert.equal(finishMeters(createRace({mode:'sprint'})),19200);
+  assert.equal(finishMeters(createRace({mode:'supercar'})),14400);
+  assert.equal(finishMeters(createRace({mode:'wasteland'})),12000);
+  const coast=createRace({mode:'coast'});
+  assert.equal(coast.timeLeft,300*60);
+  for(let i=0;i<FOUNDRY_FORKS;i++){
+    coast.distanceQ=Math.round((foundryForkAt(i)-.2)*Q);
+    coast.speedQ=70*Q;
+    coast.laneQ=i%2?Math.round(.6*Q):-Math.round(.6*Q);
+    tickRace(coast,{accelerate:true});
+  }
+  assert.equal(coast.route.length,FOUNDRY_FORKS);
+  assert.equal(coast.checkpoints,Math.floor(foundryForkAt(11)/1200));
+  assert.ok(coast.timeLeft>0);
+});
+
+test('RACING-003 validated authored pack is isolated and changes physical course',()=>{
+  const custom=JSON.parse(serializeTrack(starterTrack()));
+  custom.name='Long Ridge';custom.sections[0].curve=-.9;
+  const race=createRace({mode:'coast',pack:custom});
+  custom.sections[0].curve=1;
+  assert.equal(race.pack.sections[0].curve,-.9);
+  assert.ok(Object.isFrozen(race.pack.sections[0]));
+  assert.notEqual(foundryCenter(race.pack,900,[]),foundryCenter(starterTrack(),900,[]));
+  assert.throws(()=>createRace({mode:'wasteland',pack:custom}),RangeError);
+});
+
+test('RACING-003 drivable circuit uses validated authored gate coordinates',()=>{
+  const pack=JSON.parse(serializeTrack(starterTrack()));
+  pack.gates[2].x=58;
+  const circuit=createCircuit(pack,10);
+  pack.gates[2].x=50;
+  assert.equal(circuit.track.gates[2].x,58);
+  const initial=circuitSnapshot(circuit);
+  for(let i=0;i<90;i++)tickCircuit(circuit,{accelerate:true,steer:0});
+  const moving=circuitSnapshot(circuit);
+  assert.ok(moving.kmh>0);
+  assert.ok(Math.hypot(moving.x-initial.x,moving.z-initial.z)>5);
+  assert.ok(Number.isSafeInteger(circuit.xQ)&&Number.isSafeInteger(circuit.zQ));
+  assert.throws(()=>createCircuit(starterTrack(),21),RangeError);
 });

@@ -64,6 +64,20 @@ try{
     await page.waitForTimeout(850);
     const current=Number(await page.locator('#speed').textContent());
     assert.ok(current>0,'game did not accelerate: '+mode);
+    // Actual keyboard input: steering must move the player laterally in
+    // *both* directions, and the visible HUD must agree. A static-car chase
+    // camera or an ineffective KeyA/KeyD binding will fail this test.
+    await page.keyboard.up('ArrowUp');
+    await page.keyboard.down('KeyA');
+    await page.waitForTimeout(700);
+    const left=Number(await page.locator('#steer').textContent());
+    await page.keyboard.up('KeyA');
+    await page.keyboard.down('KeyD');
+    await page.waitForTimeout(1100);
+    const right=Number(await page.locator('#steer').textContent());
+    await page.keyboard.up('KeyD');
+    assert.ok(left<-.25,mode+' did not visibly steer left (A): '+left);
+    assert.ok(right>left+.45,mode+' did not steer back right (D): '+right);
     await page.locator('#pause').click();
     const stopped=await page.locator('#speed').textContent();
     await page.waitForTimeout(250);
@@ -127,6 +141,46 @@ try{
     findings.push({mode,speedKph:current,status:'PASS'});
     await page.close();
   }
+
+  // The editor is part of the actual packaged product, not a separate toy.
+  const origin='http://127.0.0.1:'+server.address().port;
+  const editor=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true});
+  const editorErrors=[];
+  editor.on('pageerror',e=>editorErrors.push(e.message));
+  await editor.goto(origin+'/STREET-RACER/games/track-foundry/',{waitUntil:'networkidle'});
+  assert.equal(await editor.locator('#track-preview').count(),1);
+  await editor.locator('#track-preset').selectOption('silver-ridge');
+  await editor.waitForFunction(()=>document.querySelector('#track-name').value==='Silver Ridge');
+  await editor.locator('#track-target').selectOption('circuit');
+  await editor.locator('#circuit-drive').click();
+  await editor.keyboard.down('KeyW');
+  await editor.waitForTimeout(950);
+  await editor.keyboard.up('KeyW');
+  assert.match(await editor.locator('#telemetry').textContent(),/SPEED [1-9][0-9]* KM\/H/);
+  await editor.locator('#circuit-pause').click();
+  await editor.locator('#track-name').fill('Nightfall Endurance');
+  await editor.locator('#track-environment').selectOption('night');
+  await editor.locator('#track-target').selectOption('coast');
+  assert.match(await editor.locator('#track-message').textContent(),/VALID/);
+  const download=editor.waitForEvent('download');
+  await editor.locator('#track-export').click();
+  const file=await download;assert.match(file.suggestedFilename(),/track-v1\.json/);
+  await editor.locator('#track-import').setInputFiles({
+    name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{"invalid":true}')
+  });
+  await editor.waitForFunction(()=>document.querySelector('#track-message').textContent.includes('Import rejected'));
+  assert.equal(await editor.locator('#track-name').inputValue(),'Nightfall Endurance');
+  await editor.screenshot({path:path.join(out,'track-foundry.png'),fullPage:true});
+  await editor.locator('#track-apply').click();
+  await editor.waitForURL('**/STREET-RACER/games/coast-run/');
+  assert.equal(await editor.locator('#track-name-display').textContent(),'Nightfall Endurance');
+  await editor.locator('#start').click();
+  await editor.keyboard.down('KeyA');await editor.waitForTimeout(700);await editor.keyboard.up('KeyA');
+  assert.ok(Number(await editor.locator('#steer').textContent())<-.25,
+    'authored 19.2 km course must respond to A steering');
+  assert.deepEqual(editorErrors,[],'Track Foundry runtime errors');
+  await editor.close();
+  findings.push({mode:'track-foundry',status:'PASS',receipt:'editor / authored circuit / JSON / custom road'});
 }finally{
   await browser?.close();await new Promise(resolve=>server.close(resolve));
   await fs.writeFile(path.join(out,'receipt.json'),JSON.stringify(findings,null,2)+'\n');

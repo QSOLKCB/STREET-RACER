@@ -1,0 +1,62 @@
+{
+  "format": "qsol.vanillajs.track.v1",
+  "version": 1,
+  "name": "Cinder Canyon",
+  "environment": "canyon",
+  "sections": [
+    {
+      "curve": 0.95,
+      "width": 14,
+      "fork": 14
+    },
+    {
+      "curve": -0.3,
+      "width": 12,
+      "fork": 8
+    },
+    {
+      "curve": -0.8,
+      "width": 13,
+      "fork": 10
+    },
+    {
+      "curve": 0.65,
+      "width": 14,
+      "fork": 9
+    }
+  ],
+  "gates": [
+    {
+      "x": 0,
+      "z": 55
+    },
+    {
+      "x": 36,
+      "z": 39
+    },
+    {
+      "x": 50,
+      "z": 0
+    },
+    {
+      "x": 36,
+      "z": -39
+    },
+    {
+      "x": 0,
+      "z": -55
+    },
+    {
+      "x": -36,
+      "z": -39
+    },
+    {
+      "x": -50,
+      "z": 0
+    },
+    {
+      "x": -36,
+      "z": 39
+    }
+  ]
+}
