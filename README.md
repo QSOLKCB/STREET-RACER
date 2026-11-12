@@ -26,6 +26,16 @@
 
 ---
 
+## RACING-003: Track Foundry Integration
+
+[**Track Foundry**](games/track-foundry/index.html) lets you author original
+four-stage touring routes, physically different branches and eight-gate racing
+circuits. It accepts and exports the source-pinned VANILLAJS Track Foundry
+JSON format, compiles game distances and lane geometry into Q16.16, and sends
+validated courses to **COAST RUN**, **COASTAL SPRINT 3D** (authored 4.8 km),
+or **VELOCITY II**. The existing career and built-in roads stay available.
+[Design, scope and verification](docs/RACING_003.md).
+
 ## Welcome to Redline County
 
 It is the summer of ’67. Your garage is empty, your budget is $2,400, and the

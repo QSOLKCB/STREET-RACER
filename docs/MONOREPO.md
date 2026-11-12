@@ -44,3 +44,11 @@ The fifth package is `games/coastal-sprint/`. Its `shared/racer/webgl.js` compos
 COAST RUN commits three route choices at 1,300 m thresholds. Forks change palette and downstream *rendered* road curvature, not independent physical junction topology. Rivals perform deterministic defensive lane changes. Longitudinal swept contact is 1D detection, **not** full 3D rigid-body physics.
 
 VANILLAJS reference: merged PR #84 head `5bc76a58d8d87284d8138f3ee5bd0f35dbb54bbe`. Existing SHA-256-pinned vendor code remains unchanged.
+
+## RACING-003 authored Track Foundry contract
+
+See [RACING_003.md](RACING_003.md) for the source SHA, Q16.16 integration,
+explicit stored-pack ownership, authored road/circuit semantics, compatibility
+and verification. The editable circuit is gate-distance-parametric, not an
+unclaimed free-roaming 2D kinematic solver. Existing Q16.16 race modes, root
+career and pinned vendor files retain their independent evidence boundaries.
