@@ -1,0 +1,117 @@
+{
+  "schema": "street-racer-vendor-v1",
+  "files": [
+    {
+      "repository": "QSOLKCB/ARCADE",
+      "commit": "f29b780734a50171d55ae2f770930db8a487b31c",
+      "source": "LICENSE",
+      "local": "vendor/arcade/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "repository": "QSOLKCB/ARCADE",
+      "commit": "f29b780734a50171d55ae2f770930db8a487b31c",
+      "source": "NOTICE",
+      "local": "vendor/arcade/NOTICE",
+      "sha256": "f6c326ee5c1f790099fefbc730f771bf571c7f56f755498aeb67915900027400"
+    },
+    {
+      "repository": "QSOLKCB/ARCADE",
+      "commit": "f29b780734a50171d55ae2f770930db8a487b31c",
+      "source": "js/core.js",
+      "local": "vendor/arcade/js/core.js",
+      "sha256": "356425650f9c062442c84a6143e5160175a37d9308794797d9c7c5258963b82d"
+    },
+    {
+      "repository": "QSOLKCB/E8_MUSIC",
+      "commit": "d8e5983d84af03f03a969abe3356dcf80c0e0e97",
+      "source": "LICENSE",
+      "local": "vendor/e8-music/LICENSE",
+      "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
+    },
+    {
+      "repository": "QSOLKCB/E8_MUSIC",
+      "commit": "d8e5983d84af03f03a969abe3356dcf80c0e0e97",
+      "source": "js/e8-core.js",
+      "local": "vendor/e8-music/js/e8-core.js",
+      "sha256": "6bee327e078f4a829c4938b5225fcfb49e8a077d4a90922d861c86bc1e81ac03"
+    },
+    {
+      "repository": "QSOLKCB/GAMES",
+      "commit": "7e0a9019d07b491cffc9b698fa51acdb843c49cc",
+      "source": "LICENSE",
+      "local": "vendor/games/LICENSE",
+      "sha256": "848bce75fc595f347fc64d1c59c25c18e64b15e12743edbddf9dcbd3b5dc077c"
+    },
+    {
+      "repository": "QSOLKCB/GAMES",
+      "commit": "7e0a9019d07b491cffc9b698fa51acdb843c49cc",
+      "source": "shared/NOTICE.md",
+      "local": "vendor/games/shared/NOTICE.md",
+      "sha256": "36ceb2c7e605248b2550f4201dcdccd2cf550f88de9bd2f0790331e9d475ba91"
+    },
+    {
+      "repository": "QSOLKCB/GAMES",
+      "commit": "7e0a9019d07b491cffc9b698fa51acdb843c49cc",
+      "source": "shared/qsol-input.js",
+      "local": "vendor/games/shared/qsol-input.js",
+      "sha256": "aafd16b43dec818da8aa5e848a742e08cc94e0a82d0f4829eb42438864129cbb"
+    },
+    {
+      "repository": "QSOLKCB/SONIFICATION",
+      "commit": "2ca65c6540d7051a77ed571b83f5a9df453094ec",
+      "source": "APP/js/math64.js",
+      "local": "vendor/sonification/APP/js/math64.js",
+      "sha256": "f99f0b943394f14fc865b327173ed5f448db85cd851f8cd3f1a3da007134dc40"
+    },
+    {
+      "repository": "QSOLKCB/SONIFICATION",
+      "commit": "2ca65c6540d7051a77ed571b83f5a9df453094ec",
+      "source": "APP/js/namespace.js",
+      "local": "vendor/sonification/APP/js/namespace.js",
+      "sha256": "803dabfe27d3feec1e99dd2eb5972b60d246a580c8c6d626acca9c07ab714ddb"
+    },
+    {
+      "repository": "QSOLKCB/SONIFICATION",
+      "commit": "2ca65c6540d7051a77ed571b83f5a9df453094ec",
+      "source": "APP/js/synthesis.js",
+      "local": "vendor/sonification/APP/js/synthesis.js",
+      "sha256": "5d008ffa3f18717c46cd2317060589a49fc96e9cd19d7a7e8919831178950f13"
+    },
+    {
+      "repository": "QSOLKCB/SONIFICATION",
+      "commit": "2ca65c6540d7051a77ed571b83f5a9df453094ec",
+      "source": "LICENSE",
+      "local": "vendor/sonification/LICENSE",
+      "sha256": "32ee9dbf6196874fc9d406c54a888a6c4cbb9aa4a7f35b46befeaff43a78fe85"
+    },
+    {
+      "repository": "QSOLKCB/SONIFICATION",
+      "commit": "2ca65c6540d7051a77ed571b83f5a9df453094ec",
+      "source": "NOTICE",
+      "local": "vendor/sonification/NOTICE",
+      "sha256": "a0868be95f49e17c4538022a95c3331eb42ef89cf493005b66159d1b182e7bcc"
+    },
+    {
+      "repository": "QSOLKCB/VANILLAJS",
+      "commit": "227dd5ee0f2821b8e30a151524830f0a0027cf11",
+      "source": "LICENSE",
+      "local": "vendor/vanillajs/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "repository": "QSOLKCB/VANILLAJS",
+      "commit": "227dd5ee0f2821b8e30a151524830f0a0027cf11",
+      "source": "NOTICE",
+      "local": "vendor/vanillajs/NOTICE",
+      "sha256": "2612225a7b720c855ee22e049be6e2dec2c3d7b2c6a4a60c3677f192ac515a7d"
+    },
+    {
+      "repository": "QSOLKCB/VANILLAJS",
+      "commit": "227dd5ee0f2821b8e30a151524830f0a0027cf11",
+      "source": "modules/time/index.js",
+      "local": "vendor/vanillajs/modules/time/index.js",
+      "sha256": "de94c0bc04e6a269504c5742455ce114f824c2c0d9d59a2fd94555df5d9bb4a2"
+    }
+  ]
+}

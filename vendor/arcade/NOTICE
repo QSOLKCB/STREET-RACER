@@ -1,0 +1,44 @@
+ARCADE — a QSOL–IMC project
+Copyright 2026 QSOL–IMC contributors
+
+Original browser implementations, artwork and synthesized audio are licensed
+under Apache-2.0. See LICENSE and docs/ASSETS_AND_RIGHTS.md.
+
+Dogs of War, Cops 'n' Robbers, Ninja Combat, Pit-Fighter, Time Pilot, Breakout
+Star Trek (1971), 1943 (1987) and Raiden (1990) are historical gameplay inspirations. Neon Air draws on
+air hockey. All new cabinet identities, settings and assets are original.
+
+Their names identify the referenced games; no affiliation or endorsement is
+implied. No original game assets or binaries are included.
+
+The controller deadzone/neutral-arming logic and fixed-step clock refinements are
+adapted from QSOLKCB/VANILLAJS (Apache-2.0). Performance changes follow the
+optimization method of QSOLKCB/OPT (Apache-2.0); no OPT code is included.
+
+js/vanilla2d.js is generated from QSOLKCB/VANILLAJS (Apache-2.0) modules motion2d,
+range2d, audio2d and ternary-store2d by scripts/vanilla2d.cjs; the module bodies
+are copied unchanged and the source commit is recorded in the file.
+
+
+ARCADE 2 adds ten original cabinets inspired by the gameplay categories requested
+by Trent Slade. The historical titles are listed in arcade2/README.md solely to
+identify those inspirations. No commercial game assets or source are included.
+Selected QSOLKCB/VANILLAJS v1.2.0 modules are preserved under
+arcade2/vendor/vanillajs with their full LICENSE, NOTICE and pinned provenance.
+
+ARCADE 3 adds nine original cabinets inspired by the gameplay of titles requested
+by Trent Slade. Those titles are listed in arcade3/README.md solely to identify the
+inspirations; no names, characters, levels, maps, art, music, sound or source from
+those games are included, and no endorsement is implied. ARCADE 3 reuses the
+ARCADE 2 runtime from arcade2/ and adds no third-party code.
+
+ARCADE 2 v0.7.0:
+- The integer CORDIC/BAM sine and cosine in arcade2/core.js (A.sinCosQ30) is a
+  JavaScript port of sin_cos_q30 from QSOLKCB/GALAXY retro/src/lib.rs (Apache-2.0),
+  checked against GALAXY's own reference vectors. The shooters' spiral-galaxy
+  backdrop follows the look of GALAXY's renderer; no GALAXY rendering code is copied.
+- The (2,3) torus-knot boss paths and the 2:3 "boss" sound cue are independent
+  implementations of public mathematics, inspired by QSOLKCB/GLUBALL (MPL-2.0).
+  No GLUBALL source is included.
+- Ember Wing's Remix "Focus" is an integer adaptation of the QSOLKCB/VANILLAJS
+  time-domains contract (Apache-2.0); no module code is copied.

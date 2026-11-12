@@ -1,0 +1,12 @@
+{
+  "status": "FAIL",
+  "environment": "isolated hosted/headless Chromium",
+  "checks": [],
+  "errors": [],
+  "httpFailures": [],
+  "externalRequests": [],
+  "screenshots": [],
+  "limits": "Browser clock advances genuine RAF and user-input processing. Touch is emulated; no physical-device, human-listening or hardware-speed claim.",
+  "failedCheck": "launch",
+  "failure": "browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell\n╔════════════════════════════════════════════════════════════╗\n║ Looks like Playwright was just installed or updated.       ║\n║ Please run the following command to download new browsers: ║\n║                                                            ║\n║     npx playwright install                                 ║\n║                                                            ║\n║ <3 Playwright Team                                         ║\n╚════════════════════════════════════════════════════════════╝\n    at /workspace/scratch/c5ad023f45e2/STREET-RACER/tests/browser.mjs:68:26"
+}
