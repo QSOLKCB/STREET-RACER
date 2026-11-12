@@ -57,7 +57,7 @@ try{
     }
     if(mode==='coast-run'){
       assert.equal(await page.locator('#route').textContent(),'CHOOSE');
-      assert.equal(await page.locator('#sector').textContent(),'1 / 4');
+      assert.equal(await page.locator('#sector').textContent(),'1 / 16');
     }
     await page.locator('#start').click();
     await page.keyboard.down('ArrowUp');
