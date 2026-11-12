@@ -96,17 +96,21 @@ function addCar(out,s,lane,d,color,player=false){
   const lateral=sprintLateralMetres(lane);
   const x=cx+c*lateral,z=-d+sn*lateral;
   const metal=hexRgb(color);
-  oriented(out,x,.69,z,2.65,.70,4.75,metal,heading);
-  oriented(out,x,1.28,z+.25,2.12,.62,2.4,COLORS.glass,heading);
-  oriented(out,x,1.16,z-1.76,2.58,.20,.33,COLORS.dark,heading);
-  oriented(out,x,1.05,z+2.28,2.6,.18,.22,COLORS.lamp,heading);
+  // Every body-part offset must rotate into the car's local forward axis;
+  // shifting only world Z pushed headlights/spoilers sideways on a curve.
+  const part=(forward,y,sx,sy,sz,tint)=>
+    oriented(out,x-forward*sn,y,z+forward*c,sx,sy,sz,tint,heading);
+  part(0,.69,2.65,.70,4.75,metal);
+  part(.25,1.28,2.12,.62,2.4,COLORS.glass);
+  part(-1.76,1.16,2.58,.20,.33,COLORS.dark);
+  part(2.28,1.05,2.6,.18,.22,COLORS.lamp);
   for(const side of [-1,1])for(const front of [-1.48,1.48]){
     const lx=side*1.25,lz=front;
     oriented(out,x+lx*c-lz*sn,.34,z+lx*sn+lz*c,.64,.68,.98,COLORS.dark,heading);
   }
   if(player){
-    oriented(out,x,.9,z+2.4,2,.18,.16,COLORS.pink,heading);
-    oriented(out,x,1.25,z-1.72,2.85,.10,.68,COLORS.cyan,heading);
+    part(2.4,.9,2,.18,.16,COLORS.pink);
+    part(-1.72,1.25,2.85,.10,.68,COLORS.cyan);
   }
 }
 
