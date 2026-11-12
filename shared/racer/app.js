@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import {FixedClock} from '../../vendor/vanillajs/modules/time/index.js';
 import {MODES,TRACKS,CARS} from './config.js';
-import {createRace,tickRace,distanceMeters,speedKph,finishMeters} from './sim.js';
+import {createRace,distanceMeters,speedKph,finishMeters} from './sim.js';
+import {advanceRaceFrame} from './frame.js';
 import {render,W,H} from './renderer.js';
 import {createRaceAudio} from './audio.js';
 
@@ -17,7 +18,7 @@ const trackSelect=$('track'),carSelect=$('vehicle'),overlay=$('overlay'),heading
   ammo=$('ammo'),distance=$('distance'),event=$('event'),timer=$('timer');
 const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:0});
 const audio=createRaceAudio(),held=new Set();
-let race=createRace({mode}),last=null,playing=false,frameId=null,messageUntil=0,previousEvent='';
+let race=createRace({mode}),last=null,playing=false,frameId=null,messageUntil=0;
 const keyMap={ArrowUp:'accelerate',KeyW:'accelerate',ArrowDown:'brake',KeyS:'brake',
   ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',
   Space:'boost',ShiftLeft:'boost',KeyF:'fire'};
@@ -47,7 +48,7 @@ function pauseGame(reason='PAUSED'){
 function startGame(){
   if(race.status!=='running'||race.ticks===0){
     race=createRace({mode,track:trackSelect.value,car:carSelect.value});
-    clock.reset();previousEvent='';
+    clock.reset();messageUntil=0;event.textContent='';
   }
   playing=true;clock.setPaused(false);last=null;clearInput();
   overlay.hidden=true;pause.textContent='PAUSE';
@@ -78,33 +79,54 @@ for(const btn of document.querySelectorAll('[data-hold]')){
 }
 window.addEventListener('blur',()=>pauseGame('FOCUS LOST'));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame('TAB HIDDEN')});
-window.addEventListener('pagehide',()=>{audio.dispose();if(frameId!==null)cancelAnimationFrame(frameId)});
-function updateHud(now){
+// BFCache retains this module instance: do not permanently dispose the sound
+// receiver when the document is only frozen. Resume must be an explicit gesture.
+window.addEventListener('pagehide',pageEvent=>{
+  if(playing)pauseGame('RACE PAUSED');
+  else clearInput();
+  if(!pageEvent.persisted)void audio.dispose();
+  if(frameId!==null){cancelAnimationFrame(frameId);frameId=null;}
+  last=null;
+});
+window.addEventListener('pageshow',pageEvent=>{
+  if(!pageEvent.persisted)return;
+  last=null;
+  clearInput();
+  if(playing)pauseGame('RACE PAUSED');
+  if(frameId===null)frameId=requestAnimationFrame(frame);
+});
+function updateHud(now,frameEvents=[]){
   speed.textContent=String(speedKph(race));lap.textContent=String(race.lap)+' / '+settings.laps;
   rank.textContent=String(race.position)+' / '+(race.rivals.length+1);
   health.textContent=String(race.health)+'%';nitro.textContent=String(Math.ceil(race.boost/6))+'%';
   ammo.textContent=String(race.ammo);distance.textContent=Math.floor(distanceMeters(race))+' / '+finishMeters(race)+' m';
   timer.textContent=String(Math.ceil((race.timeLeft??0)/60))+'s';
   status.textContent=race.status==='running'?(playing?'LIVE RACE':'READY'):race.status.toUpperCase();
-  if(race.lastEvent&&race.lastEvent!==previousEvent){event.textContent=race.lastEvent;messageUntil=now+1400;audio.cue(race.lastEvent)}
+  if(frameEvents.length){
+    // Display every distinct event in this render interval and cue every
+    // occurrence, including consecutive ticks with identical event names.
+    event.textContent=[...new Set(frameEvents)].join(' · ');
+    messageUntil=now+1400;
+    for(const name of frameEvents)audio.cue(name);
+  }
   if(now>messageUntil)event.textContent='';
-  previousEvent=race.lastEvent;
 }
 function frame(now){
   frameId=requestAnimationFrame(frame);
   if(last===null)last=now;
   const elapsed=clampDelta((now-last)/1000);last=now;
+  let frameEvents=[];
   if(playing){
-    clock.advance(elapsed,()=>{
-      tickRace(race,controls());
-      if(race.status!=='running'){playing=false;clock.setPaused(true);clearInput();audio.silence();
-        showOverlay(race.status==='won'?'RACE COMPLETE':'RACE OVER',
-          race.status==='won'?'You finished with '+race.score+' points. Try another car or circuit.':
-            'The road wins this round. Tune your route and go again.','RACE AGAIN');}
-    });
-    audio.update(race.speedQ/65536);
+    const result=advanceRaceFrame(clock,race,controls(),elapsed,audio);
+    frameEvents=result.events;
+    if(result.finished){
+      playing=false;clearInput();
+      showOverlay(race.status==='won'?'RACE COMPLETE':'RACE OVER',
+        race.status==='won'?'You finished with '+race.score+' points. Try another car or circuit.':
+          'The road wins this round. Tune your route and go again.','RACE AGAIN');
+    }
   }
-  render(ctx,race);updateHud(now);
+  render(ctx,race);updateHud(now,frameEvents);
 }
 const clampDelta=t=>Math.max(0,Math.min(.25,t));
 showOverlay(settings.title,settings.kind==='circuit'?'Three laps, rival supercars, alpine bends and nitro.':

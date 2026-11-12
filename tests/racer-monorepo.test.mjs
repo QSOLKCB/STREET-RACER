@@ -3,6 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Q,createRace,tickRace,replay,distanceMeters,speedKph,finishMeters} from '../shared/racer/sim.js';
 import {MODES,modeSettings} from '../shared/racer/config.js';
+import {FixedClock} from '../vendor/vanillajs/modules/time/index.js';
+import {advanceRaceFrame} from '../shared/racer/frame.js';
 const accelerate={accelerate:true,steer:0,boost:false,fire:false};
 test('all modes start with different contracts and bounded Q16 state',()=>{
   for(const mode of Object.keys(MODES)){
@@ -57,4 +59,48 @@ test('basic counterfactual replay: narrower culling cannot change far-away state
   for(let i=0;i<40;i++){tickRace(a,accelerate);tickRace(b,accelerate)}
   assert.equal(a.distanceQ,b.distanceQ);assert.equal(a.speedQ,b.speedQ);
   assert.equal(a.health,b.health);
+});
+
+test('all events survive two physics ticks in one render frame',()=>{
+  const s=createRace({mode:'wasteland'}),r=s.rivals[0];
+  r.distanceQ=0;r.laneQ=0;r.speedQ=0;
+  const clock=new FixedClock({step:1/60,maxSteps:15}),calls=[];
+  const audio={update:value=>calls.push(['update',value]),silence:()=>calls.push(['silence'])};
+  const result=advanceRaceFrame(clock,s,{fire:true},1/30,audio);
+  assert.equal(clock.ticks,2);
+  assert.deepEqual(result.events,['IMPACT','HIT +100']);
+  assert.equal(s.lastEvent,''); // The second uneventful tick no longer loses feedback.
+  assert.deepEqual(s.events,[]);
+  assert.equal(result.finished,false);
+  assert.equal(calls.filter(c=>c[0]==='update').length,1);
+});
+
+test('terminal finish and crash silence the engine without reviving it',()=>{
+  for(const outcome of ['won','lost']){
+    const s=createRace(),clock=new FixedClock({step:1/60,maxSteps:15}),calls=[];
+    const audio={update:value=>calls.push(['update',value]),silence:()=>calls.push(['silence'])};
+    s.speedQ=20*Q;
+    if(outcome==='won'){
+      s.distanceQ=Math.round((finishMeters(s)-.1)*Q);
+    }else{
+      s.health=1;
+      const rival=s.rivals[0];rival.distanceQ=0;rival.speedQ=20*Q;rival.laneQ=0;
+    }
+    const result=advanceRaceFrame(clock,s,{accelerate:true},1/30,audio);
+    assert.equal(s.status,outcome);
+    assert.equal(result.finished,true);
+    assert.equal(clock.paused,true);
+    assert.deepEqual(calls,[['silence']]);
+    assert.ok(result.events.includes(outcome==='won'?'FINISH':'CAR DESTROYED'));
+  }
+});
+
+test('same-tick collision and weapons are both emitted in order',()=>{
+  const s=createRace({mode:'wasteland'}),r=s.rivals[0];
+  r.distanceQ=0;r.laneQ=0;r.speedQ=0;
+  tickRace(s,{fire:true});
+  assert.deepEqual(s.events,['IMPACT','HIT +100']);
+  assert.equal(s.lastEvent,'HIT +100');
+  tickRace(s,{});
+  assert.deepEqual(s.events,[]);
 });

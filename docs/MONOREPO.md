@@ -30,3 +30,9 @@ All new files are authored under the repository Apache-2.0 license. The game nam
 `node --test tests/*.test.mjs` covers arithmetic bounds, deterministic input replay, mode-specific contracts, braking, off-road limits, weapon cooldown, timeouts and terminal idempotence. `node tests/racer-browser.mjs` (after `build` with Playwright available) exercises all three game pages and captures browser evidence. Original tests and vendor fingerprint checks continue unchanged.
 
 This is a **playable proof-of-concept**, not a pixel-accurate Need for Speed II, OutRun or Outlander reimplementation: physics are arcade approximations, track elevations are render-only and traffic AI is currently lane-fixed. OPT methods are implemented but performance gains have not been established by an A/B benchmark. Do not imply a formal proof of the physics or of numerical speedups.
+
+## Review hardening: runtime lifetime and sound feedback
+
+- Every simulation tick clears and fills its own ordered `events` array; `lastEvent` remains the latest-tick compatibility field. `advanceRaceFrame` aggregates all event batches from a bounded `FixedClock.advance` call and publishes them once for HUD and SFX, so sub-60-FPS rendering cannot suppress cues.
+- The audio adapter is silenced within the terminal step and cannot schedule another engine gain for that frame. Regression tests cover finish and collision destruction.
+- `pagehide.persisted` pauses play, clears input and cancels the RAF without disposing the optional audio receiver. `pageshow.persisted` starts a single fresh RAF with reset wall-clock origin; players must explicitly resume. Non-persisted navigation still disposes audio. The browser suite tests simulated BFCache restoration and real Back navigation.

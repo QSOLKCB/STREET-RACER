@@ -47,6 +47,21 @@ try{
     await page.locator('#start').click();
     await page.waitForTimeout(100);
     assert.equal(await page.locator('#overlay').isVisible(),false);
+    if(mode==='supercar-circuit'){
+      // Synthetic persisted navigation deterministically tests the BFCache path,
+      // including browsers where headless Chromium elects not to cache pages.
+      await page.keyboard.up('ArrowUp');
+      await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true})));
+      assert.equal(await page.locator('#overlay').isVisible(),true);
+      await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+      await page.locator('#start').click();
+      const preRestoreSpeed=Number(await page.locator('#speed').textContent());
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(700);
+      assert.ok(Number(await page.locator('#speed').textContent())>preRestoreSpeed,
+        'race must advance after BFCache pageshow and Resume');
+      await page.keyboard.up('ArrowUp');
+    }
     await page.screenshot({path:path.join(out,mode+'.png'),fullPage:true});
     // Exercise a genuine offline deep-link reload after this game registers
     // and the root worker has populated its own deterministic asset cache.
@@ -55,6 +70,22 @@ try{
     await page.reload({waitUntil:'load'});
     assert.equal(await page.locator('#start').isVisible(),true,'offline game entrypoint: '+mode);
     await page.context().setOffline(false);
+    if(mode==='supercar-circuit'){
+      // Real Back navigation: the run must work whether Chromium restores the
+      // same document from BFCache or creates a fresh one.
+      await page.locator('#start').click();
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(250);
+      await page.keyboard.up('ArrowUp');
+      await page.locator('a.logo').click();
+      await page.goBack({waitUntil:'load'});
+      assert.equal(await page.locator('#start').isVisible(),true);
+      await page.locator('#start').click();
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(700);
+      assert.ok(Number(await page.locator('#speed').textContent())>0,'Back navigation must restore playable controls');
+      await page.keyboard.up('ArrowUp');
+    }
     assert.deepEqual(errors,[],'browser errors: '+mode);
     assert.deepEqual(offsite,[],'external network requests: '+mode);
     findings.push({mode,speedKph:current,status:'PASS'});

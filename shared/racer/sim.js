@@ -18,7 +18,7 @@ export function createRace({mode='supercar',track,car,seed=2026}={}){
     distanceQ:0,speedQ:0,laneQ:0,laneVQ:0,health:100,boost:600,
     nitro:0,ammo:m.combat?12:0,shots:0,knockouts:0,collisionCooldown:0,shotCooldown:0,
     checkpoints:0,timeLeft:m.kind==='checkpoint'?90*HZ:null,lap:1,position:m.rivals+1,
-    score:0,rivals,lastEvent:''};
+    score:0,rivals,lastEvent:'',events:[]};
 }
 export const distanceMeters=s=>s.distanceQ/Q;
 export const speedKph=s=>Math.round(s.speedQ/Q*3.6);
@@ -36,7 +36,10 @@ export function tickRace(s,input={}){
   const steer=clamp(Number(input.steer)||0,-1,1),go=Boolean(input.accelerate),
     brake=Boolean(input.brake),useBoost=Boolean(input.boost)&&s.boost>0&&go,
     setup=modeSettings(s.mode,s.track,s.car),car=setup.car,mode=setup.mode;
-  s.lastEvent='';s.ticks++;
+  // Every fixed tick exposes an ordered, bounded event batch.
+  // lastEvent remains for callers that only need the most recent event.
+  s.lastEvent='';s.events=[];s.ticks++;
+  const emit=message=>{s.lastEvent=message;s.events.push(message);};
   if(s.collisionCooldown>0)s.collisionCooldown--;
   if(s.shotCooldown>0)s.shotCooldown--;
   const offroad=Math.abs(s.laneQ)>q(1);
@@ -60,7 +63,7 @@ export function tickRace(s,input={}){
     const laneDelta=Math.abs(rival.laneQ-s.laneQ);
     if(Math.abs(delta)<q(5)&&laneDelta<q(.27)&&s.collisionCooldown===0){
       s.collisionCooldown=85;s.health=Math.max(0,s.health-15);
-      s.speedQ=Math.trunc(s.speedQ*57/100);s.lastEvent='IMPACT';
+      s.speedQ=Math.trunc(s.speedQ*57/100);emit('IMPACT');
     }
   }
   if(mode.combat&&input.fire&&s.ammo>0&&s.shotCooldown===0){
@@ -74,23 +77,23 @@ export function tickRace(s,input={}){
     }
     if(chosen){
       chosen.integrity--;
-      s.score+=100;s.lastEvent='HIT +100';
-      if(chosen.integrity===0){chosen.wrecked=true;s.knockouts++;s.score+=500;s.lastEvent='TAKEDOWN +600';}
-    }else{s.lastEvent='SHOT MISSED';}
+      s.score+=100;emit('HIT +100');
+      if(chosen.integrity===0){chosen.wrecked=true;s.knockouts++;s.score+=500;emit('TAKEDOWN +600');}
+    }else{emit('SHOT MISSED');}
   }
   if(mode.combat&&s.ticks%540===0)s.ammo=Math.min(12,s.ammo+2);
   if(mode.kind==='checkpoint'){
     const segment=q(mode.courseMeters/4);
     const crossed=Math.min(3,Math.floor(s.distanceQ/segment));
-    if(crossed>s.checkpoints){s.checkpoints=crossed;s.timeLeft+=20*HZ;s.score+=250;s.lastEvent='CHECKPOINT +20s';}
+    if(crossed>s.checkpoints){s.checkpoints=crossed;s.timeLeft+=20*HZ;s.score+=250;emit('CHECKPOINT +20s');}
     s.timeLeft--;
   }
   s.lap=Math.min(mode.laps,1+Math.floor(s.distanceQ/q(mode.courseMeters)));
   s.position=1+s.rivals.filter(r=>!r.wrecked&&r.distanceQ>s.distanceQ).length;
-  if(s.health<=0){s.status='lost';s.lastEvent='CAR DESTROYED';}
+  if(s.health<=0){s.status='lost';emit('CAR DESTROYED');}
   else if(s.distanceQ>=q(mode.courseMeters*mode.laps)){
-    s.status='won';s.score+=Math.max(0,10000-Math.trunc(s.ticks/2))+s.knockouts*300;s.lastEvent='FINISH';
-  }else if(s.timeLeft!==null&&s.timeLeft<=0){s.status='lost';s.lastEvent='TIME EXPIRED';}
+    s.status='won';s.score+=Math.max(0,10000-Math.trunc(s.ticks/2))+s.knockouts*300;emit('FINISH');
+  }else if(s.timeLeft!==null&&s.timeLeft<=0){s.status='lost';emit('TIME EXPIRED');}
   if(![s.distanceQ,s.speedQ,s.laneQ,s.laneVQ,...s.rivals.flatMap(r=>[r.distanceQ,r.speedQ,r.laneQ])].every(isInt)){
     throw new RangeError('Q16 integer domain exceeded');
   }
