@@ -2,7 +2,7 @@
   "status": "PASS",
   "command": "node --test --test-reporter=tap tests/*.test.mjs",
   "runtime": "v24.22.1",
-  "capturedUTC": "2026-11-12T03:08:17.562424+00:00",
+  "capturedUTC": "2026-11-12T03:13:17.069028+00:00",
   "tests": 31,
   "exitCode": 0,
   "sourceSha256": {
@@ -11,13 +11,13 @@
     "js/audio.js": "3ba7c9efd8db034e9d3da660f8ab1d20ddb01a26071a511f635b2b1eea281ca8",
     "js/render.js": "f3eaa9eb0d5704666ef30feb08c43778af5a4a1044920d28b16228161c9f82b3",
     "js/app.js": "58c4ca7df85f5ef6b375bccc9aa3234a1aee1cb7cd548c5a42f0bf38f54dff7d",
-    "js/ui.js": "10ec8eddb422b5be2c809bd46eb635fe74cb0aaf5422eb6ebb163cf4c765eb09",
+    "js/ui.js": "ff0829464c96f7dace713fecaaf069e3400446e9825987146e6bcd4ffdd34fe0",
     "style.css": "00ceb0ac5d84f9d7d6e9dcb385ae752865e1e87f81cb1eac2e7fa0fba7b5119b",
     "index.html": "53c870736abc3dcc9c41f1170120fa85a12ef4e9ea099c0b158253231ad42e33",
     "tests/audio.test.mjs": "c340dd18b3eefebcf9b30cecc5b0684a9c17037490af6419796884df974622d9",
     "tests/core.test.mjs": "09592f50455d37c1efb10a213f1533655d6bed91049a940ff41d3debd40fdb21",
     "tests/render.test.mjs": "60a20b731626e4140f0c5b75a80709a1a1bfe0ff661f683a016835e6d55152f1"
   },
-  "outputSha256": "26262f0cd4240d934183184e03b38a09f79799bafd257880e2c318dfcb21b238",
+  "outputSha256": "0396bc14a99e1c939179b2bbe3afa5eb9994befe754811afa8656495014e98ef",
   "limits": "Simulation, audio API and native geometry tests; browser execution reported separately."
 }

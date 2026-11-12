@@ -73,7 +73,19 @@ try{
   await check('first-garage-and-read-only-observation',async()=>{
     const state=await snap();assert.equal(state.career.cars.length,0);assert.equal(state.career.cash,2400);assert.equal(state.audio.status,'locked');
     assert.equal(await page.evaluate(()=>{const copy=__streetRacer;copy.career.cash=0;return __streetRacer.career.cash;}),2400);
-    assert.equal(await page.locator('#garage-canvas').evaluate(c=>c.width===Math.round(c.clientWidth*devicePixelRatio)),true);
+    const canvasGeometry=()=>page.locator('#garage-canvas').evaluate(c=>{
+      const rect=c.getBoundingClientRect(),dpr=Math.max(1,Math.min(2,devicePixelRatio));
+      return {css:[rect.width,rect.height],deviceDpr:devicePixelRatio,effectiveDpr:dpr,backing:[c.width,c.height],expected:[Math.round(rect.width*dpr),Math.round(rect.height*dpr)]};
+    });
+    receipt.garageCanvas=await canvasGeometry();
+    // Layout dimensions can be fractional. clientWidth/clientHeight round them
+    // to CSS integers and are not the renderer's backing-store contract.
+    await page.waitForFunction(()=>{
+      const c=document.querySelector('#garage-canvas'),r=c.getBoundingClientRect(),dpr=Math.max(1,Math.min(2,devicePixelRatio));
+      return r.width>0&&r.height>0&&c.width===Math.round(r.width*dpr)&&c.height===Math.round(r.height*dpr);
+    });
+    receipt.garageCanvas=await canvasGeometry();
+    assert.deepEqual(receipt.garageCanvas.backing,receipt.garageCanvas.expected);
     await picture('garage-first-project');
   });
   await check('eight-classifieds-buy-first-car-and-all-navigation',async()=>{
@@ -179,6 +191,7 @@ try{
         const a=document.createElement('canvas'),b=document.createElement('canvas'),options={width,height,dpr:1.25};
         const draw=c=>kind==='garage'?drawGarage(c,CARS[5],{hp:292},options):drawRace(c,race,options);
         draw(a);const first=a.getContext('2d').getImageData(0,0,a.width,a.height).data;draw(a);draw(b);
+        if(a.width!==Math.round(width*1.25)||a.height!==Math.round(height*1.25)||b.width!==a.width||b.height!==a.height)throw new Error('Renderer backing dimensions do not match the requested CSS size and DPR');
         const next=a.getContext('2d').getImageData(0,0,a.width,a.height).data,reference=b.getContext('2d').getImageData(0,0,b.width,b.height).data;
         if(first.length!==next.length||first.length!==reference.length||first.some((v,i)=>v!==next[i]||v!==reference[i]))throw new Error('Renderer repeat/fresh pixel mismatch');
         result.push({kind,width,height,dpr:1.25,backing:[a.width,a.height],rgba:'identical'});
