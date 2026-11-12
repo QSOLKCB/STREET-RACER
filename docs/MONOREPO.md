@@ -2,7 +2,7 @@
 
 ## Deployment and compatibility
 
-The repository currently contains **four playable racing experiences**. The first is the original career game kept at `/` for existing bookmarks, root service-worker scope, save-game compatibility and the established Chromium checks. `games/street-racer/README.md` records this explicit package boundary. A later migration of original files requires separate redirects, import rewrites, service-worker tests and saved-career compatibility proofs; this PR does **not** silently break those interfaces.
+The repository currently contains **five playable racing experiences**. The first is the original career game kept at `/` for existing bookmarks, root service-worker scope, save-game compatibility and the established Chromium checks. `games/street-racer/README.md` records this explicit package boundary. A later migration of original files requires separate redirects, import rewrites, service-worker tests and saved-career compatibility proofs; this PR does **not** silently break those interfaces.
 
 All new games are ordinary static pages below `games/`. Root `arcade-hub.html` links to all of them. `scripts/site.mjs` packages all new directories, rejects symlinks and checks every local ES-module import. Its content-addressed service worker must be refreshed after asset changes; offline navigation falls back to the cached **requested game page** before the legacy root. Each standalone game registers the root-scoped worker on HTTPS or localhost, so direct deep links support offline reloads after the initial precache. CI runs the complete local test, actual offline deep-link reloads and browser suite before Pages deployment.
 
@@ -36,3 +36,11 @@ This is a **playable proof-of-concept**, not a pixel-accurate Need for Speed II,
 - Every simulation tick clears and fills its own ordered `events` array; `lastEvent` remains the latest-tick compatibility field. `advanceRaceFrame` aggregates all event batches from a bounded `FixedClock.advance` call and publishes them once for HUD and SFX, so sub-60-FPS rendering cannot suppress cues.
 - The audio adapter is silenced within the terminal step and cannot schedule another engine gain for that frame. Regression tests cover finish and collision destruction.
 - `pagehide.persisted` pauses play, clears input and cancels the RAF without disposing the optional audio receiver. `pageshow.persisted` starts a single fresh RAF with reset wall-clock origin; players must explicitly resume. Non-persisted navigation still disposes audio. The browser suite tests simulated BFCache restoration and real Back navigation.
+
+## RACING-002 upgrade
+
+The fifth package is `games/coastal-sprint/`. Its `shared/racer/webgl.js` composes the existing pinned VANILLAJS WebGL renderer, while `shared/racer/course.js` defines an original analytic centreline and touring palette progression. The game stays Q16.16; 3D geometry uses render-only floating point and is outside replay identity. Static geometry is built once, and only the bounded traffic mesh is updated per render.
+
+COAST RUN commits three route choices at 1,300 m thresholds. Forks change palette and downstream *rendered* road curvature, not independent physical junction topology. Rivals perform deterministic defensive lane changes. Longitudinal swept contact is 1D detection, **not** full 3D rigid-body physics.
+
+VANILLAJS reference: merged PR #84 head `5bc76a58d8d87284d8138f3ee5bd0f35dbb54bbe`. Existing SHA-256-pinned vendor code remains unchanged.

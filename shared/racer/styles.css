@@ -45,3 +45,6 @@ h1 span{color:var(--accent)}.subtitle{color:var(--muted);margin:0;font-size:15px
 @media(min-width:900px){.controls{max-width:750px;margin:8px auto;opacity:.7}.controls button{min-width:83px}}
 @media(max-width:640px){.shell{padding:10px}.stage{border-radius:4px}.hud-top{top:6px;left:6px;right:6px}.pill{font-size:9px;padding:4px 6px}.overlay{padding:18px}.metric{min-width:50px}.telemetry{gap:12px}.bar{padding:10px 0}.controls button{min-width:52px;min-height:52px}.links{gap:4px}.links a{padding:8px;font-size:10px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+
+/* Author-level display declarations must never defeat the hidden attribute. */
+.metric[hidden],.config label[hidden]{display:none!important}

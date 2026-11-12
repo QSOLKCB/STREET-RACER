@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#09121e"><meta name="description" content="A sunset checkpoint cruise.">
+<meta name="theme-color" content="#09121e"><meta name="description" content="Four scenic stages, three left/right forks and a checkpoint race against the clock.">
 <title>COAST RUN · QSOL-IMC Racing Arcade</title>
 <link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../../shared/racer/styles.css">
@@ -10,7 +10,7 @@
 <header class="topbar"><a class="logo" href="../../arcade-hub.html">QSOL-IMC <span>///</span> RACING ARCADE</a>
 <nav class="links" aria-label="Race library">
 <a href="../../">STREET RACER</a><a href="../supercar-circuit/">VELOCITY II</a>
-<a href="../coast-run/">COAST RUN</a><a href="../outland-road/">OUTLAND ROAD</a>
+<a href="../coast-run/">COAST RUN</a><a href="../outland-road/">OUTLAND ROAD</a><a href="../coastal-sprint/">COASTAL SPRINT 3D</a>
 </nav></header>
 <div class="headline"><div><div class="eyebrow">OFFLINE ARCADE / <span id="mode"></span></div>
 <h1 id="title">COAST RUN</h1><p id="subtitle" class="subtitle"></p></div>
@@ -20,7 +20,7 @@
 <canvas id="race-canvas" width="960" height="540" role="img" aria-label="Procedural pseudo-3D roadway, rival cars and the player's car. Driving controls below."></canvas>
 <div class="hud-top"><div class="pill">● <b id="status">READY</b></div><div class="pill" id="event" aria-live="polite"></div></div>
 <div class="overlay" id="overlay"><div class="overlay-card"><div class="eyebrow">QSOL MOTOR WORKS / EST. 2026</div>
-<h2 id="overlay-heading">COAST RUN</h2><p id="overlay-description">A sunset checkpoint cruise.</p>
+<h2 id="overlay-heading">COAST RUN</h2><p id="overlay-description">Four scenic stages, three left/right forks and a checkpoint race against the clock.</p>
 <button type="button" id="start" class="btn-primary">START ENGINE</button></div></div>
 </div>
 <div class="bar"><div class="telemetry" aria-label="Live race telemetry">
@@ -31,6 +31,9 @@
 <div class="metric"><small>NITRO</small><strong id="nitro">100%</strong></div>
 <div class="metric" id="ammo-box"><small>AMMO</small><strong id="ammo">0</strong></div>
 <div class="metric" id="timer-box"><small>TIME LEFT</small><strong id="timer">90s</strong></div>
+<div class="metric" id="sector-box" hidden><small>STAGE</small><strong id="sector">1 / 4</strong></div>
+<div class="metric route" id="route-box" hidden><small>FORK HISTORY</small><strong id="route">CHOOSE</strong></div>
+
 </div><div class="buttons"><button type="button" class="small-button" id="sound" aria-pressed="false">SOUND OFF</button>
 <button type="button" class="small-button" id="pause">PAUSE</button>
 <button type="button" class="small-button" id="restart">RESTART</button></div></div>

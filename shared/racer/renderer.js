@@ -2,6 +2,7 @@
 // Canvas pseudo-3D: procedural, original geometry only. No external textures.
 import {Q,curvature,altitude} from './sim.js';
 import {modeSettings} from './config.js';
+import {tourPalette,routeBend,TOUR_STAGE_METERS} from './course.js';
 export const W=960,H=540,VIEW_METERS=920;
 const horizon=190,steps=88;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -9,12 +10,13 @@ function poly(ctx,points,color){
   ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
   for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);ctx.closePath();ctx.fill();
 }
-export function project(z,distance,lane,track){
+export function project(z,distance,lane,track,route=[]){
   const f=clamp(1-z/VIEW_METERS,0,1),perspective=Math.pow(f,1.46);
   const y=horizon+perspective*(H-horizon);
   const width=5+455*Math.pow(f,1.65);
-  const bend=(curvature(distance+z,track)-curvature(distance,track))*155*(1-f)
-    -Math.sin(distance/460)*65*f;
+  const curved=curvature(distance+z,track)-curvature(distance,track);
+  const branching=routeBend(distance+z,route)-routeBend(distance,route);
+  const bend=(curved+branching)*155*(1-f)-Math.sin(distance/460)*65*f;
   const center=W/2+bend-lane*width*.69;
   return {x:center,y,width,f};
 }
@@ -23,7 +25,20 @@ function sky(ctx,track,distance){
   gradient.addColorStop(0,track.sky);gradient.addColorStop(1,track.horizon);
   ctx.fillStyle=gradient;ctx.fillRect(0,0,W,H);
   const sunX=track.id==='coast'?730:790;
+  const halo=ctx.createRadialGradient(sunX,103,8,sunX,103,138);
+  halo.addColorStop(0,'rgba(255,245,185,.30)');
+  halo.addColorStop(1,'rgba(255,220,140,0)');
+  ctx.fillStyle=halo;ctx.fillRect(sunX-140,-30,280,280);
   ctx.fillStyle='#ffe4aa';ctx.beginPath();ctx.arc(sunX,103,track.id==='desert'?48:29,0,Math.PI*2);ctx.fill();
+  // Bounded deterministic parallax cloud bands. No frame-random flicker.
+  for(let i=0;i<6;i++){
+    const x=((i*207-distance*.018)%1260+1260)%1260-170;
+    const y=41+i%3*36;
+    const size=18+(i*17)%24;
+    ctx.fillStyle='rgba(242,248,255,.14)';
+    ctx.beginPath();ctx.ellipse(x,y,size*2.8,size*.42,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(x+size*.55,y-4,size*1.15,size*.44,0,0,Math.PI*2);ctx.fill();
+  }
   for(let layer=0;layer<2;layer++){
     const base=layer===0?161:185,amplitude=layer===0?44:25;
     const color=layer===0?track.mountain:track.mountain2;
@@ -38,10 +53,10 @@ function sky(ctx,track,distance){
   ctx.fillStyle=track.ground;ctx.fillRect(0,horizon,W,H-horizon);
 }
 function road(ctx,s,track){
-  const d=s.distanceQ/Q,lane=s.laneQ/Q;
+  const d=s.distanceQ/Q,lane=s.laneQ/Q,route=s.mode==='coast'?s.route:[];
   for(let i=0;i<steps;i++){
     const z0=VIEW_METERS*(1-i/steps),z1=VIEW_METERS*(1-(i+1)/steps);
-    const a=project(z0,d,lane,track.id),b=project(z1,d,lane,track.id);
+    const a=project(z0,d,lane,track.id,route),b=project(z1,d,lane,track.id,route);
     const section=Math.floor((d+z0)/36),alternate=section%2===0;
     ctx.fillStyle=alternate?track.grass:track.grass2;
     ctx.fillRect(0,a.y,W,b.y-a.y+1);
@@ -56,6 +71,13 @@ function road(ctx,s,track){
         const thick=Math.max(.5,b.width*.007);
         poly(ctx,[[ax-thick/2,a.y],[ax+thick/2,a.y],[bx+thick,b.y],[bx-thick,b.y]],track.stripe);
       }
+    }
+    // Reflective centre paint and a narrow shadow seam make the road
+    // readable at high speed without adding texture files or shaders.
+    if(section%5===0&&b.f>.27){
+      const thin=Math.max(.65,b.width*.008);
+      poly(ctx,[[a.x-thin,a.y],[a.x+thin,a.y],[b.x+thin*2,b.y],[b.x-thin*2,b.y]],
+        'rgba(229,236,239,.22)');
     }
     const shadow=altitude(d+z0,track.id);
     if(shadow>0.6&&b.f>.35){ctx.fillStyle='rgba(12,24,40,.035)';ctx.fillRect(0,a.y,W,b.y-a.y+1);}
@@ -94,11 +116,18 @@ function roadside(ctx,s,track){
   // OPT working-set reduction: only 11 nearby fixtures, far-to-near painter order.
   for(let m=first+11*85;m>=first;m-=85){
     const z=m-d;if(z<8||z>VIEW_METERS)continue;
-    const a=project(z,d,s.laneQ/Q,track.id);
+    const a=project(z,d,s.laneQ/Q,track.id,s.mode==='coast'?s.route:[]);
     const size=8+170*Math.pow(a.f,1.6);
     for(const side of [-1,1]){
       const x=a.x+side*(a.width*1.5+size*.15);
       tree(ctx,x,a.y,size,track,((Math.trunc(m/85)+side)&1)!==0);
+      if(m%255===0&&side===1&&size>16){
+        ctx.fillStyle='#162a33';ctx.fillRect(x-size*.8,a.y-size*1.45,size*1.4,size*.42);
+        ctx.strokeStyle='#9af2e9';ctx.strokeRect(x-size*.8,a.y-size*1.45,size*1.4,size*.42);
+        ctx.fillStyle='#eafff6';ctx.textAlign='center';
+        ctx.font=Math.max(8,size*.17)+'px monospace';
+        ctx.fillText('QSOL / '+(Math.floor(m/100)%10),x-size*.1,a.y-size*1.16);
+      }
     }
   }
 }
@@ -120,7 +149,7 @@ function rivalCar(ctx,x,y,size,color){
 function rivals(ctx,s,track){
   const d=s.distanceQ/Q;
   for(const rival of visibleRivals(s)){
-    const z=rival.distanceQ/Q-d,p=project(z,d,s.laneQ/Q,track.id);
+    const z=rival.distanceQ/Q-d,p=project(z,d,s.laneQ/Q,track.id,s.mode==='coast'?s.route:[]);
     const width=16+p.f*p.f*90;
     rivalCar(ctx,p.x+rival.laneQ/Q*p.width*.65,p.y,width,rival.color);
   }
@@ -144,6 +173,24 @@ function player(ctx,s,color){
   }
   ctx.restore();
 }
+function forkBanner(ctx,s,track){
+  if(s.mode!=='coast'||s.route.length>=3)return;
+  const distance=s.distanceQ/Q;
+  const at=(s.route.length+1)*TOUR_STAGE_METERS,z=at-distance;
+  if(z<=10||z>VIEW_METERS)return;
+  const p=project(z,distance,s.laneQ/Q,track.id,s.route);
+  const scale=Math.max(.7,Math.min(3.1,1+p.f*2.5));
+  const width=126*scale,height=26*scale;
+  const x=p.x-width/2,y=p.y-100*scale;
+  ctx.fillStyle='#122a34';ctx.fillRect(x,y,width,height);
+  ctx.lineWidth=Math.max(1,scale);ctx.strokeStyle='#9ce8d9';ctx.strokeRect(x,y,width,height);
+  ctx.fillStyle='#f8edb7';ctx.textAlign='center';
+  ctx.font='bold '+Math.max(10,Math.round(scale*11))+'px monospace';
+  ctx.fillText('◀ LEFT   |   RIGHT ▶',p.x,y+height*.68);
+  ctx.strokeStyle='#445968';ctx.lineWidth=2*scale;
+  for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(p.x+side*width*.38,y+height);
+    ctx.lineTo(p.x+side*width*.38,p.y);ctx.stroke();}
+}
 function overlays(ctx,s,track){
   const shade=ctx.createLinearGradient(0,0,0,H);
   shade.addColorStop(0,'rgba(5,9,17,.36)');shade.addColorStop(.35,'rgba(0,0,0,0)');
@@ -154,11 +201,27 @@ function overlays(ctx,s,track){
   ctx.fillStyle='#e7fbfc';ctx.font='bold 13px monospace';ctx.fillText('SECTOR FEED / LIVE',30,98);
   ctx.fillStyle='#b9d1d7';ctx.font='12px monospace';ctx.fillText('CURVE '+curvature(s.distanceQ/Q,track.id).toFixed(2),30,119);
   ctx.fillText('ELEV. '+altitude(s.distanceQ/Q,track.id).toFixed(2),30,136);
+  if(s.mode==='coast'){
+    ctx.fillStyle='#d4f8ee';ctx.font='bold 15px monospace';
+    ctx.textAlign='left';
+    ctx.fillText(track.name.toUpperCase(),24,H-24);
+    const next=(s.route.length+1)*TOUR_STAGE_METERS-s.distanceQ/Q;
+    if(s.route.length<3&&next<340){
+      ctx.fillStyle='rgba(7,22,32,.83)';ctx.fillRect(W-302,86,280,70);
+      ctx.strokeStyle='#9eead7';ctx.strokeRect(W-302,86,280,70);
+      ctx.fillStyle='#f5edbd';ctx.font='bold 16px monospace';
+      ctx.fillText('FORK AHEAD '+Math.max(0,Math.ceil(next))+' m',W-290,110);
+      ctx.font='bold 15px monospace';
+      ctx.fillText(s.laneQ<0?'◀ LEFT SELECTED':'RIGHT SELECTED ▶',W-290,139);
+    }
+  }
 }
 export function render(ctx,s){
   const setup=modeSettings(s.mode,s.track,s.car);
   ctx.clearRect(0,0,W,H);
-  sky(ctx,setup.track,s.distanceQ/Q);
-  road(ctx,s,setup.track);roadside(ctx,s,setup.track);rivals(ctx,s,setup.track);
-  player(ctx,s,setup.car.color);overlays(ctx,s,setup.track);
+  const track=s.mode==='coast'?tourPalette(s.route,s.track):setup.track;
+  sky(ctx,track,s.distanceQ/Q);
+  road(ctx,s,track);roadside(ctx,s,track);rivals(ctx,s,track);
+  forkBanner(ctx,s,track);
+  player(ctx,s,setup.car.color);overlays(ctx,s,track);
 }

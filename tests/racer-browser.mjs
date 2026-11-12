@@ -24,7 +24,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 let browser;const findings=[];
 try{
   browser=await chromium.launch({headless:true});
-  for(const mode of ['supercar-circuit','coast-run','outland-road']){
+  for(const mode of ['supercar-circuit','coast-run','outland-road','coastal-sprint']){
     const page=await browser.newPage({viewport:{width:1280,height:900}});
     const errors=[],offsite=[];
     page.on('pageerror',e=>errors.push(e.message));
@@ -34,6 +34,17 @@ try{
     await page.goto(url,{waitUntil:'networkidle'});
     assert.equal(await page.locator('#race-canvas').count(),1);
     assert.equal(await page.locator('#start').isVisible(),true);
+    if(mode==='coastal-sprint'){
+      const supported=await page.evaluate(()=>!!document.createElement('canvas').getContext('webgl'));
+      if(supported){
+        assert.equal(await page.locator('#webgl-view').isVisible(),true,'3D view must display');
+        assert.equal(await page.locator('#webgl-view').evaluate(c=>!!c.getContext('webgl')&&c.width>1),true);
+      }else assert.equal(await page.locator('#race-canvas').isVisible(),true,'Canvas fallback required');
+    }
+    if(mode==='coast-run'){
+      assert.equal(await page.locator('#route').textContent(),'CHOOSE');
+      assert.equal(await page.locator('#sector').textContent(),'1 / 4');
+    }
     await page.locator('#start').click();
     await page.keyboard.down('ArrowUp');
     await page.waitForTimeout(850);
