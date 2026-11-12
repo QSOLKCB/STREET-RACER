@@ -229,10 +229,24 @@ test('RACING-002 road paint, tyres, and Q16.16 sprint penalties share a physical
       lateral.push((mesh[i]-cx)*normal[0]+mesh[i+2]*normal[1]);
     }
     const highest=Math.max(...lateral),lowest=Math.min(...lateral);
-    assert.ok(Math.abs(highest-(sprintLateralMetres(lane)+SPRINT_TYRE_HALF_WIDTH_METRES))<1e-8,
-      'actual wheel geometry must agree with the declared lane/tyre contract');
-    assert.ok(Math.abs(lowest-(sprintLateralMetres(lane)-SPRINT_TYRE_HALF_WIDTH_METRES))<1e-8);
+    // The simulation stores a quantised Q16.16 lane, not the original
+    // unquantised JS number supplied by the test. Measure that exact lane.
+    const expected=sprintLateralMetres(reference.laneQ/Q);
+    assert.ok(Math.abs(highest-(expected+SPRINT_TYRE_HALF_WIDTH_METRES))<1e-8,
+      'outer wheel at lane '+lane+': '+highest+' vs '+(expected+SPRINT_TYRE_HALF_WIDTH_METRES));
+    assert.ok(Math.abs(lowest-(expected-SPRINT_TYRE_HALF_WIDTH_METRES))<1e-8,
+      'inner wheel at lane '+lane+': '+lowest+' vs '+(expected-SPRINT_TYRE_HALF_WIDTH_METRES));
   }
+  // Verify the actual first asphalt slab (following the first ground
+  // primitive) spans ±13m in the road's local X axis, not only a constant.
+  const road=sprintSceneGeometry(),roadHeading=sprintHeading(10);
+  const mid=sprintCenter(10),roadNormal=[Math.cos(roadHeading),Math.sin(roadHeading)];
+  const slab=[];
+  for(let i=36*6;i<2*36*6;i+=6){
+    slab.push((road[i]-mid)*roadNormal[0]+(road[i+2]+10)*roadNormal[1]);
+  }
+  assert.ok(Math.abs(Math.max(...slab)-SPRINT_ROAD_HALF_WIDTH_METRES)<1e-8);
+  assert.ok(Math.abs(Math.min(...slab)+SPRINT_ROAD_HALF_WIDTH_METRES)<1e-8);
   assert.throws(()=>sprintLateralMetres(NaN),TypeError);
   const good=createRace({mode:'sprint'});good.laneQ=Math.round(inside*Q);
   good.distanceQ=Math.round(3599.5*Q);good.speedQ=90*Q;
