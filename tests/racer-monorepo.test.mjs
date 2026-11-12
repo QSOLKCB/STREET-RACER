@@ -6,7 +6,9 @@ import {MODES,modeSettings} from '../shared/racer/config.js';
 import {FixedClock} from '../vendor/vanillajs/modules/time/index.js';
 import {advanceRaceFrame} from '../shared/racer/frame.js';
 import {TOUR_STAGE_METERS,TOUR_STAGES,sprintCenter,sprintHeading,tourPalette,routeBend,
-  sweptLongitudinalContact} from '../shared/racer/course.js';
+  sweptLongitudinalContact,SPRINT_ROAD_HALF_WIDTH_METRES,
+  SPRINT_TYRE_HALF_WIDTH_METRES,SPRINT_LANE_SCALE_METRES,
+  SPRINT_FINISH_LANE,SPRINT_OFFROAD_LANE,sprintLateralMetres} from '../shared/racer/course.js';
 import {sprintSceneGeometry,sprintTrafficGeometry} from '../shared/racer/webgl.js';
 import {project} from '../shared/racer/renderer.js';
 const accelerate={accelerate:true,steer:0,boost:false,fire:false};
@@ -201,4 +203,41 @@ test('RACING-002 static WebGL road and moving car geometry are finite and bounde
   assert.ok(traffic.length>0&&traffic.length<150000);
   assert.equal(traffic.length%6,0);
   assert.ok(traffic.every(Number.isFinite));
+});
+
+test('RACING-002 road paint, tyres, and Q16.16 sprint penalties share a physical lane',()=>{
+  const epsilon=1e-10,inside=SPRINT_FINISH_LANE,offroad=1.2;
+  assert.ok(Math.abs(SPRINT_LANE_SCALE_METRES+SPRINT_TYRE_HALF_WIDTH_METRES-
+    SPRINT_ROAD_HALF_WIDTH_METRES)<epsilon);
+  assert.ok(sprintLateralMetres(inside)+SPRINT_TYRE_HALF_WIDTH_METRES<
+    SPRINT_ROAD_HALF_WIDTH_METRES,'finish-valid tyre must fit entirely on road');
+  assert.ok(sprintLateralMetres(SPRINT_OFFROAD_LANE)+SPRINT_TYRE_HALF_WIDTH_METRES<=
+    SPRINT_ROAD_HALF_WIDTH_METRES+epsilon,'lane 1 should touch, not pass, the edge');
+  assert.ok(sprintLateralMetres(offroad)-SPRINT_TYRE_HALF_WIDTH_METRES<
+    SPRINT_ROAD_HALF_WIDTH_METRES&&
+    sprintLateralMetres(offroad)+SPRINT_TYRE_HALF_WIDTH_METRES>
+    SPRINT_ROAD_HALF_WIDTH_METRES,'lane 1.2 must visibly cross the painted road edge');
+  const reference=createRace({mode:'sprint'});
+  for(const lane of [0,inside,SPRINT_OFFROAD_LANE,offroad,-offroad]){
+    reference.laneQ=Math.round(lane*Q);
+    const mesh=sprintTrafficGeometry(reference);
+    const heading=sprintHeading(0),cx=sprintCenter(0),normal=[Math.cos(heading),Math.sin(heading)];
+    // Ten box primitives describe the player, including the four wheels.
+    // Project actual generated vertex locations on the road's lateral normal.
+    const lateral=[];
+    for(let i=0;i<10*36*6;i+=6){
+      lateral.push((mesh[i]-cx)*normal[0]+mesh[i+2]*normal[1]);
+    }
+    const highest=Math.max(...lateral),lowest=Math.min(...lateral);
+    assert.ok(Math.abs(highest-(sprintLateralMetres(lane)+SPRINT_TYRE_HALF_WIDTH_METRES))<1e-8,
+      'actual wheel geometry must agree with the declared lane/tyre contract');
+    assert.ok(Math.abs(lowest-(sprintLateralMetres(lane)-SPRINT_TYRE_HALF_WIDTH_METRES))<1e-8);
+  }
+  assert.throws(()=>sprintLateralMetres(NaN),TypeError);
+  const good=createRace({mode:'sprint'});good.laneQ=Math.round(inside*Q);
+  good.distanceQ=Math.round(3599.5*Q);good.speedQ=90*Q;
+  tickRace(good,{accelerate:true});assert.equal(good.status,'won');
+  const bad=createRace({mode:'sprint'});bad.laneQ=Math.round(offroad*Q);bad.speedQ=90*Q;
+  tickRace(bad,{accelerate:true});
+  assert.ok(bad.speedQ<=52*Q,'off-road lane should trigger the slow shoulder penalty');
 });

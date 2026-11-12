@@ -3,6 +3,19 @@
 // Independent game data and functions; no VANILLAJS demo runtime is copied.
 import {TRACKS} from './config.js';
 export const TOUR_STAGE_METERS=1300,TOUR_STAGES=4,SPRINT_METERS=3600;
+
+// Keep the painted road, vehicle wheel footprint and Q16.16 lane rules aligned.
+// The outer face of the wheel is 1.25 m + 0.64/2 m from car centre in webgl.js.
+// At normalized lane ±1 the outer tyre reaches the asphalt edge (±13 m).
+// The sprint finish deliberately requires a slightly safer line (±0.95).
+export const SPRINT_ROAD_HALF_WIDTH_METRES=13;
+export const SPRINT_TYRE_HALF_WIDTH_METRES=1.25+0.64/2;
+export const SPRINT_LANE_SCALE_METRES=SPRINT_ROAD_HALF_WIDTH_METRES-SPRINT_TYRE_HALF_WIDTH_METRES;
+export const SPRINT_OFFROAD_LANE=1,SPRINT_FINISH_LANE=0.95;
+export function sprintLateralMetres(lane){
+  if(!Number.isFinite(lane))throw new TypeError('sprint lane must be finite');
+  return lane*SPRINT_LANE_SCALE_METRES;
+}
 const TRACK_IDS=Object.keys(TRACKS);
 
 export function tourPalette(route=[],startingTrack='coast'){

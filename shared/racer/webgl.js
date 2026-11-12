@@ -5,7 +5,8 @@
 import {Renderer,boxVertices} from '../../vendor/vanillajs/modules/render-webgl/index.js';
 import {quatMultiply} from '../../vendor/vanillajs/modules/math/index.js';
 import {Q} from './sim.js';
-import {sprintCenter,sprintHeading,SPRINT_METERS} from './course.js';
+import {sprintCenter,sprintHeading,SPRINT_METERS,SPRINT_ROAD_HALF_WIDTH_METRES,
+  sprintLateralMetres} from './course.js';
 
 const COLORS=Object.freeze({
   asphalt:[.13,.17,.23],asphaltAlt:[.16,.20,.25],
@@ -54,12 +55,12 @@ export function sprintSceneGeometry(){
     const stage=Math.min(3,Math.floor(at/900));
     const ground=stage===0?COLORS.green:stage===1?COLORS.sand:stage===2?COLORS.ridge:COLORS.green;
     oriented(out,x,-.78,z,185,.30,20,ground,yaw);
-    oriented(out,x,-.08,z,26,.26,20.25,m%40===0?COLORS.asphalt:COLORS.asphaltAlt,yaw);
+    oriented(out,x,-.08,z,2*SPRINT_ROAD_HALF_WIDTH_METRES,.26,20.25,m%40===0?COLORS.asphalt:COLORS.asphaltAlt,yaw);
     for(const side of [-1,1]){
-      const edge=side*12.7;
+      const edge=side*(SPRINT_ROAD_HALF_WIDTH_METRES-.3);
       oriented(out,x+Math.cos(yaw)*edge,.072,z+Math.sin(yaw)*edge,.32,.05,20,
         m%80===0?COLORS.edge:side<0?COLORS.cyan:COLORS.pink,yaw);
-      const shoulder=side*14;
+      const shoulder=side*(SPRINT_ROAD_HALF_WIDTH_METRES+1);
       oriented(out,x+Math.cos(yaw)*shoulder,-.16,z+Math.sin(yaw)*shoulder,2.2,.1,20,ground,yaw);
     }
     if(m%60===0){
@@ -77,11 +78,12 @@ export function sprintSceneGeometry(){
   for(let m=900;m<=SPRINT_METERS;m+=900){
     const x=sprintCenter(m),z=-m,yaw=sprintHeading(m);
     for(const side of [-1,1]){
-      const px=x+Math.cos(yaw)*side*14,pz=z+Math.sin(yaw)*side*14;
+      const px=x+Math.cos(yaw)*side*(SPRINT_ROAD_HALF_WIDTH_METRES+1),
+        pz=z+Math.sin(yaw)*side*(SPRINT_ROAD_HALF_WIDTH_METRES+1);
       oriented(out,px,4.2,pz,.85,8.4,.85,side===1?COLORS.pink:COLORS.cyan,yaw);
     }
     oriented(out,x,8.5,z,30,1,.8,m===SPRINT_METERS?COLORS.lamp:COLORS.cyan,yaw);
-    oriented(out,x,.015,z,26,.055,1.5,m===SPRINT_METERS?COLORS.lamp:COLORS.edge,yaw);
+    oriented(out,x,.015,z,2*SPRINT_ROAD_HALF_WIDTH_METRES,.055,1.5,m===SPRINT_METERS?COLORS.lamp:COLORS.edge,yaw);
   }
   return out;
 }
@@ -91,7 +93,8 @@ function hexRgb(hex){
 }
 function addCar(out,s,lane,d,color,player=false){
   const heading=sprintHeading(d),cx=sprintCenter(d),c=Math.cos(heading),sn=Math.sin(heading);
-  const x=cx+c*lane*8,z=-d+sn*lane*8;
+  const lateral=sprintLateralMetres(lane);
+  const x=cx+c*lateral,z=-d+sn*lateral;
   const metal=hexRgb(color);
   oriented(out,x,.69,z,2.65,.70,4.75,metal,heading);
   oriented(out,x,1.28,z+.25,2.12,.62,2.4,COLORS.glass,heading);
@@ -128,11 +131,11 @@ export function createSprintRenderer(canvas){
   return {
     draw(s){
       if(disposed)throw new Error('3D scene disposed');
-      const d=s.distanceQ/Q,heading=sprintHeading(d),lane=s.laneQ/Q;
-      const cx=sprintCenter(d)+Math.cos(heading)*lane*8;
-      const z=-d+Math.sin(heading)*lane*8;
+      const d=s.distanceQ/Q,heading=sprintHeading(d),lateral=sprintLateralMetres(s.laneQ/Q);
+      const cx=sprintCenter(d)+Math.cos(heading)*lateral;
+      const z=-d+Math.sin(heading)*lateral;
       const lookX=sprintCenter(Math.min(SPRINT_METERS,d+85))+
-        lane*8*Math.cos(sprintHeading(Math.min(SPRINT_METERS,d+85)));
+        lateral*Math.cos(sprintHeading(Math.min(SPRINT_METERS,d+85)));
       const yaw=Math.atan2(lookX-cx,75);
       const qYaw=[0,-Math.sin(yaw/2),0,Math.cos(yaw/2)];
       const qPitch=[Math.sin(-.27),0,0,Math.cos(-.27)];

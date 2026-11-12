@@ -2,7 +2,8 @@
 // Integer Q16.16 race core. Fixed 60 Hz steps; no DOM, wall clock, or randomness in tick().
 import {seededRandom} from '../../vendor/vanillajs/modules/math/index.js';
 import {modeSettings} from './config.js';
-import {TOUR_STAGE_METERS,TOUR_STAGES,sweptLongitudinalContact} from './course.js';
+import {TOUR_STAGE_METERS,TOUR_STAGES,sweptLongitudinalContact,
+  SPRINT_OFFROAD_LANE,SPRINT_FINISH_LANE} from './course.js';
 export const Q=65536, HZ=60;
 export const q=n=>Math.round(n*Q);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
@@ -43,7 +44,7 @@ export function tickRace(s,input={}){
   const emit=message=>{s.lastEvent=message;s.events.push(message);};
   if(s.collisionCooldown>0)s.collisionCooldown--;
   if(s.shotCooldown>0)s.shotCooldown--;
-  const offroad=Math.abs(s.laneQ)>q(1);
+  const offroad=Math.abs(s.laneQ)>q(mode.kind==='sprint'?SPRINT_OFFROAD_LANE:1);
   const acceleration=(go?car.acceleration:-8)-(brake?39:0)-(offroad?30:0)+(useBoost?29:0);
   // RACING-002 nitro: speed exceeds the normal cap while burning fuel.
   // On release it bleeds off across ticks instead of snapping downward.
@@ -125,7 +126,7 @@ export function tickRace(s,input={}){
   s.position=1+s.rivals.filter(r=>!r.wrecked&&r.distanceQ>s.distanceQ).length;
   if(s.health<=0){s.status='lost';emit('CAR DESTROYED');}
   else if(s.distanceQ>=q(mode.courseMeters*mode.laps)){
-    if(mode.kind==='sprint'&&Math.abs(s.laneQ)>q(.95)){
+    if(mode.kind==='sprint'&&Math.abs(s.laneQ)>q(SPRINT_FINISH_LANE)){
       // No off-road finish. Preserve an approach to the line so the player
       // can re-enter the road and make a new valid forward crossing.
       s.distanceQ=q(mode.courseMeters-10);
