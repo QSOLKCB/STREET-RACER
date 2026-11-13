@@ -158,6 +158,28 @@ try{
   await editor.keyboard.up('KeyW');
   assert.match(await editor.locator('#telemetry').textContent(),/SPEED [1-9][0-9]* KM\/H/);
   await editor.locator('#circuit-pause').click();
+  const paused=await editor.locator('#telemetry').textContent();
+  assert.match(paused,/SPEED [1-9][0-9]* KM\/H/);
+  // Plain pause/resume must keep the current simulation state.
+  await editor.locator('#circuit-drive').click();
+  await editor.waitForTimeout(100);
+  assert.match(await editor.locator('#telemetry').textContent(),
+    /SPEED [1-9][0-9]* KM\/H/,'resume without edits must preserve speed');
+  await editor.locator('#circuit-pause').click();
+  // Editing while paused must invalidate the old circuit, not resume stale
+  // gates/road widths behind the freshly drawn geometry.
+  await editor.getByRole('spinbutton',{name:'Gate 2 X'}).fill('40');
+  assert.equal(await editor.locator('#circuit-drive').textContent(),'DRIVE CIRCUIT');
+  assert.match(await editor.locator('#telemetry').textContent(),/EDIT 8 GATES/);
+  await editor.locator('#circuit-drive').click();
+  await editor.waitForFunction(()=>document.querySelector('#telemetry')?.textContent
+    .includes('SPEED 0 KM/H'));
+  assert.equal(await editor.getByRole('spinbutton',{name:'Gate 2 X'}).inputValue(),'40');
+  assert.match(await editor.locator('#drive-hint').textContent(),/NEXT GATE 2/);
+  await editor.locator('#circuit-pause').click();
+  await editor.getByRole('spinbutton',{name:'Section 1 WIDTH'}).fill('13.5');
+  assert.equal(await editor.locator('#circuit-drive').textContent(),'DRIVE CIRCUIT');
+  assert.match(await editor.locator('#telemetry').textContent(),/EDIT 8 GATES/);
   await editor.locator('#track-name').fill('Nightfall Endurance');
   await editor.locator('#track-environment').selectOption('night');
   await editor.locator('#track-target').selectOption('coast');

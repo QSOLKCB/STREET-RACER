@@ -66,7 +66,7 @@ function sky(ctx,track,distance){
   ctx.fillStyle=track.ground;ctx.fillRect(0,horizon,W,H-horizon);
 }
 function road(ctx,s,track){
-  const d=s.distanceQ/Q,lane=s.laneQ/Q,route=s.mode==='coast'?s.route:[],
+  const d=s.distanceQ/Q,lane=s.laneQ/Q,route=s.route??[],
     pack=s.pack;
   for(let i=0;i<steps;i++){
     const z0=VIEW_METERS*(1-i/steps),z1=VIEW_METERS*(1-(i+1)/steps);
@@ -131,7 +131,7 @@ function roadside(ctx,s,track){
   // OPT working-set reduction: only 11 nearby fixtures, far-to-near painter order.
   for(let m=first+11*85;m>=first;m-=85){
     const z=m-d;if(z<8||z>VIEW_METERS)continue;
-    const a=project(z,d,s.laneQ/Q,track.id,s.mode==='coast'?s.route:[],s.pack);
+    const a=project(z,d,s.laneQ/Q,track.id,s.route??[],s.pack);
     const size=8+170*Math.pow(a.f,1.6);
     for(const side of [-1,1]){
       const x=a.x+side*(a.width*1.5+size*.15);
@@ -165,7 +165,7 @@ function rivals(ctx,s,track){
   const d=s.distanceQ/Q;
   for(const rival of visibleRivals(s)){
     const z=rival.distanceQ/Q-d,
-      p=project(z,d,s.laneQ/Q,track.id,s.mode==='coast'?s.route:[],s.pack);
+      p=project(z,d,s.laneQ/Q,track.id,s.route??[],s.pack);
     const width=16+p.f*p.f*90;
     rivalCar(ctx,p.x+rival.laneQ/Q*p.width*.77,p.y,width,rival.color);
   }
@@ -192,9 +192,8 @@ function player(ctx,s,color){
   ctx.restore();
 }
 function forkBanner(ctx,s,track){
-  if(s.mode!=='coast'||s.route.length>=3)return;
+  if(s.mode!=='coast'||s.route.length>=FOUNDRY_FORKS)return;
   const distance=s.distanceQ/Q;
-  if(s.route.length>=FOUNDRY_FORKS)return;
   const at=foundryForkAt(s.route.length),z=at-distance;
   if(z<=10||z>VIEW_METERS)return;
   const p=project(z,distance,s.laneQ/Q,track.id,s.route,s.pack);

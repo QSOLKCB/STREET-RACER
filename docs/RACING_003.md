@@ -88,3 +88,16 @@ all fork trajectories and leg seams, hostile pack parsing, circuit gate
 simulation, import/export and editor-to-game hand-off, focus cancellation,
 offline deep-link reload and WebGL-to-Canvas fallback. CI is authoritative
 for its executed checks; this document does not claim physical-GPU acceptance.
+
+## Codex review hardening
+
+- Any edit to the Track Foundry draft invalidates an existing paused/running
+  circuit snapshot; the next DRIVE action creates a circuit from the newly
+  validated gate and road-width data. Ordinary pause and resume with no edit
+  preserves the current circuit progress. An invalid draft cannot resume the
+  previous track.
+- COAST RUN paints a roadside LEFT/RIGHT sign at all twelve fork locations.
+  At the final fork there is no spurious thirteenth sign.
+- COASTAL SPRINT's Canvas2D fallback now consumes the same recorded fork
+  history used in WebGL; the alternative physical centrelines result in
+  different visible road geometry, including after WebGL context loss.

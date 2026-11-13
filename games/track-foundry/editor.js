@@ -61,8 +61,26 @@ function pauseCircuit(message){
   draw();
 }
 function changed(){
-  revision++;pauseCircuit('Editor changed; circuit paused');
-  const pack=valid();if(pack)note('VALID: '+pack.name+' · four sections · eight circuit gates');
+  revision++;
+  // A paused (or running) circuit owns an immutable snapshot of its gates and
+  // width. Never resume that old snapshot after any draft edit, including a
+  // temporarily invalid numeric value. A plain pause without editing keeps
+  // its existing progress.
+  const hadCircuit=circuit!==null;
+  pauseCircuit('Track edited; circuit stopped');
+  if(hadCircuit){
+    circuit=null;
+    driveButton.textContent='DRIVE CIRCUIT';
+    pauseButton.disabled=true;
+    keys.clear();
+    clock.reset();
+    clock.setPaused(true);
+    lastTime=null;
+  }
+  const pack=valid();
+  if(pack)note('VALID: '+pack.name+' · '+(hadCircuit?
+    'Circuit reset; DRIVE starts on the edited geometry':
+    'four sections · eight circuit gates'));
   draw();
 }
 function coordX(x){return canvas.width/2+x*3;}

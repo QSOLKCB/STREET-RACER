@@ -10,7 +10,7 @@ import {TOUR_STAGE_METERS,TOUR_STAGES,sprintCenter,sprintHeading,tourPalette,rou
   SPRINT_TYRE_HALF_WIDTH_METRES,SPRINT_LANE_SCALE_METRES,
   SPRINT_FINISH_LANE,SPRINT_OFFROAD_LANE,sprintLateralMetres} from '../shared/racer/course.js';
 import {sprintSceneGeometry,sprintTrafficGeometry} from '../shared/racer/webgl.js';
-import {project,playerScreenX} from '../shared/racer/renderer.js';
+import {project,playerScreenX,render} from '../shared/racer/renderer.js';
 import {starterTrack,validateTrack,parseTrackJSON,serializeTrack,foundryCenter,
   foundryWidth,foundryHeading,foundryForkAt,foundryLeg,
   FOUNDRY_TOTAL,FOUNDRY_FORKS,foundryLateralMetres} from '../shared/racer/foundry.js';
@@ -390,4 +390,60 @@ test('RACING-003 authored WebGL player tyre extent matches its variable road hal
         'within-lane rendered tyre must not cross asphalt');
     }
   }
+});
+
+test('RACING-003 roadside signs appear for all twelve physical forks, never after the last',()=>{
+  // Record the authored overlay's actual Canvas2D drawing calls, rather
+  // than checking a hard-coded source string for the obsolete 3-fork guard.
+  const texts=[];
+  const gradient={addColorStop(){}};
+  const ctx=new Proxy({}, {
+    get(target,key){
+      if(key in target)return target[key];
+      if(key==='createLinearGradient'||key==='createRadialGradient')return()=>gradient;
+      if(key==='fillText')return text=>texts.push(String(text));
+      return()=>{};
+    },
+    set(target,key,value){target[key]=value;return true;}
+  });
+  const race=createRace({mode:'coast'});race.rivals=[];
+  for(let index=0;index<=FOUNDRY_FORKS;index++){
+    race.route=Array.from({length:index},(_,i)=>i%2?'right':'left');
+    race.distanceQ=Math.round((index<FOUNDRY_FORKS?
+      foundryForkAt(index)-300:FOUNDRY_TOTAL-50)*Q);
+    texts.length=0;
+    render(ctx,race);
+    const count=texts.filter(text=>text.includes('LEFT')&&text.includes('RIGHT')).length;
+    assert.equal(count,index<FOUNDRY_FORKS?1:0,
+      'fork '+(index+1)+' must '+(index<FOUNDRY_FORKS?'have':'not have')+' a roadside sign');
+  }
+});
+
+test('RACING-003 sprint Canvas fallback paints the selected physical fork centreline',()=>{
+  const pack=starterTrack();
+  const makeContext=()=>{
+    const trace=[],gradient={addColorStop(){}};
+    const ctx=new Proxy({}, {
+      get(target,key){
+        if(key in target)return target[key];
+        if(key==='createLinearGradient'||key==='createRadialGradient')return()=>gradient;
+        if(key==='moveTo'||key==='lineTo')return(x,y)=>trace.push([key,x,y]);
+        return()=>{};
+      },
+      set(target,key,value){target[key]=value;return true;}
+    });
+    return {ctx,trace};
+  };
+  const first=createRace({mode:'sprint',pack}),second=createRace({mode:'sprint',pack});
+  first.rivals=[];second.rivals=[];
+  first.distanceQ=second.distanceQ=Math.round(1500*Q);
+  first.route=['left'];second.route=['right'];
+  const a=makeContext(),b=makeContext();
+  render(a.ctx,first);render(b.ctx,second);
+  assert.ok(a.trace.length>600,'fallback must draw actual road geometry');
+  assert.equal(a.trace.length,b.trace.length);
+  assert.notDeepEqual(a.trace,b.trace,
+    'Canvas fallback must visually distinguish physically different sprint forks');
+  assert.notEqual(project(250,1500,0,'coast',first.route,first.pack).x,
+    project(250,1500,0,'coast',second.route,second.pack).x);
 });
