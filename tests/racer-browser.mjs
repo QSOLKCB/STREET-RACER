@@ -168,6 +168,9 @@ try{
   await editor.locator('#circuit-pause').click();
   // Editing while paused must invalidate the old circuit, not resume stale
   // gates/road widths behind the freshly drawn geometry.
+  // Gate controls live in a collapsed <details>; exercise the public UI
+  // rather than attempting to fill an inaccessible input.
+  await editor.locator('details:has(#track-gates) > summary').click();
   await editor.getByRole('spinbutton',{name:'Gate 2 X'}).fill('40');
   assert.equal(await editor.locator('#circuit-drive').textContent(),'DRIVE CIRCUIT');
   assert.match(await editor.locator('#telemetry').textContent(),/EDIT 8 GATES/);
