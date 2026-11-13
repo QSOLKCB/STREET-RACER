@@ -436,7 +436,10 @@ test('RACING-003 sprint Canvas fallback paints the selected physical fork centre
   };
   const first=createRace({mode:'sprint',pack}),second=createRace({mode:'sprint',pack});
   first.rivals=[];second.rivals=[];
-  first.distanceQ=second.distanceQ=Math.round(1500*Q);
+  // At 1,250 m the chosen fork is still physically diverging; after the
+  // smooth transition, a follow-camera can correctly see the same relative
+  // road shape despite different absolute world-space centrelines.
+  first.distanceQ=second.distanceQ=Math.round(1250*Q);
   first.route=['left'];second.route=['right'];
   const a=makeContext(),b=makeContext();
   render(a.ctx,first);render(b.ctx,second);
@@ -444,6 +447,6 @@ test('RACING-003 sprint Canvas fallback paints the selected physical fork centre
   assert.equal(a.trace.length,b.trace.length);
   assert.notDeepEqual(a.trace,b.trace,
     'Canvas fallback must visually distinguish physically different sprint forks');
-  assert.notEqual(project(250,1500,0,'coast',first.route,first.pack).x,
-    project(250,1500,0,'coast',second.route,second.pack).x);
+  assert.notEqual(project(250,1250,0,'coast',first.route,first.pack).x,
+    project(250,1250,0,'coast',second.route,second.pack).x);
 });
