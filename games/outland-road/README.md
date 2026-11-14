@@ -7,10 +7,3 @@ Launch [index.html](index.html) from the built site or an HTTP server at the rep
 ## RACING-002 combat polish
 
 Rivals block the driver's lane within range, with bounded deterministic Q16.16 motion. Improved nitro momentum and swept longitudinal contact detection add arcade driving depth while preserving ammunition and takedown rules.
-
-## RACING-003
-
-OUTLAND ROAD is now a 12 km endurance combat race. Steering force and
-screen-space driver motion are increased; pressing A/D moves across lanes
-during traffic and weapon interactions rather than keeping the car fixed
-in the centre of the view.

@@ -57,27 +57,13 @@ try{
     }
     if(mode==='coast-run'){
       assert.equal(await page.locator('#route').textContent(),'CHOOSE');
-      assert.equal(await page.locator('#sector').textContent(),'1 / 16');
+      assert.equal(await page.locator('#sector').textContent(),'1 / 4');
     }
     await page.locator('#start').click();
     await page.keyboard.down('ArrowUp');
     await page.waitForTimeout(850);
     const current=Number(await page.locator('#speed').textContent());
     assert.ok(current>0,'game did not accelerate: '+mode);
-    // Actual keyboard input: steering must move the player laterally in
-    // *both* directions, and the visible HUD must agree. A static-car chase
-    // camera or an ineffective KeyA/KeyD binding will fail this test.
-    await page.keyboard.up('ArrowUp');
-    await page.keyboard.down('KeyA');
-    await page.waitForTimeout(700);
-    const left=Number(await page.locator('#steer').textContent());
-    await page.keyboard.up('KeyA');
-    await page.keyboard.down('KeyD');
-    await page.waitForTimeout(1100);
-    const right=Number(await page.locator('#steer').textContent());
-    await page.keyboard.up('KeyD');
-    assert.ok(left<-.25,mode+' did not visibly steer left (A): '+left);
-    assert.ok(right>left+.45,mode+' did not steer back right (D): '+right);
     await page.locator('#pause').click();
     const stopped=await page.locator('#speed').textContent();
     await page.waitForTimeout(250);
@@ -141,73 +127,132 @@ try{
     findings.push({mode,speedKph:current,status:'PASS'});
     await page.close();
   }
-
-  // The editor is part of the actual packaged product, not a separate toy.
-  const origin='http://127.0.0.1:'+server.address().port;
-  const editor=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true});
-  const editorErrors=[];
-  editor.on('pageerror',e=>editorErrors.push(e.message));
-  await editor.goto(origin+'/STREET-RACER/games/track-foundry/',{waitUntil:'networkidle'});
-  assert.equal(await editor.locator('#track-preview').count(),1);
-  await editor.locator('#track-preset').selectOption('silver-ridge');
-  await editor.waitForFunction(()=>document.querySelector('#track-name').value==='Silver Ridge');
-  await editor.locator('#track-target').selectOption('circuit');
-  await editor.locator('#circuit-drive').click();
-  await editor.keyboard.down('KeyW');
-  await editor.waitForTimeout(950);
-  await editor.keyboard.up('KeyW');
-  assert.match(await editor.locator('#telemetry').textContent(),/SPEED [1-9][0-9]* KM\/H/);
-  await editor.locator('#circuit-pause').click();
-  const paused=await editor.locator('#telemetry').textContent();
-  assert.match(paused,/SPEED [1-9][0-9]* KM\/H/);
-  // Plain pause/resume must keep the current simulation state.
-  await editor.locator('#circuit-drive').click();
-  await editor.waitForTimeout(100);
-  assert.match(await editor.locator('#telemetry').textContent(),
-    /SPEED [1-9][0-9]* KM\/H/,'resume without edits must preserve speed');
-  await editor.locator('#circuit-pause').click();
-  // Editing while paused must invalidate the old circuit, not resume stale
-  // gates/road widths behind the freshly drawn geometry.
-  // Gate controls live in a collapsed <details>; exercise the public UI
-  // rather than attempting to fill an inaccessible input.
-  await editor.locator('details:has(#track-gates) > summary').click();
-  await editor.getByRole('spinbutton',{name:'Gate 2 X'}).fill('40');
-  assert.equal(await editor.locator('#circuit-drive').textContent(),'DRIVE CIRCUIT');
-  assert.match(await editor.locator('#telemetry').textContent(),/EDIT 8 GATES/);
-  await editor.locator('#circuit-drive').click();
-  await editor.waitForFunction(()=>document.querySelector('#telemetry')?.textContent
-    .includes('SPEED 0 KM/H'));
-  assert.equal(await editor.getByRole('spinbutton',{name:'Gate 2 X'}).inputValue(),'40');
-  assert.match(await editor.locator('#drive-hint').textContent(),/NEXT GATE 2/);
-  await editor.locator('#circuit-pause').click();
-  await editor.getByRole('spinbutton',{name:'Section 1 WIDTH'}).fill('13.5');
-  assert.equal(await editor.locator('#circuit-drive').textContent(),'DRIVE CIRCUIT');
-  assert.match(await editor.locator('#telemetry').textContent(),/EDIT 8 GATES/);
-  await editor.locator('#track-name').fill('Nightfall Endurance');
-  await editor.locator('#track-environment').selectOption('night');
-  await editor.locator('#track-target').selectOption('coast');
-  assert.match(await editor.locator('#track-message').textContent(),/VALID/);
-  const download=editor.waitForEvent('download');
-  await editor.locator('#track-export').click();
-  const file=await download;assert.match(file.suggestedFilename(),/track-v1\.json/);
-  await editor.locator('#track-import').setInputFiles({
-    name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{"invalid":true}')
+  // RACING-003: drive a validated source-pinned pack through actual browser
+  // authoring, export, reload/deep-link and both Canvas/WebGL consumers.
+  {
+    const origin='http://127.0.0.1:'+server.address().port;
+    const page=await browser.newPage({viewport:{width:1200,height:900},acceptDownloads:true});
+    const errors=[],offsite=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    page.on('request',r=>{if(!r.url().startsWith(origin)&&
+      !r.url().startsWith('data:')&&!r.url().startsWith('blob:'))offsite.push(r.url());});
+    const editorUrl=origin+'/STREET-RACER/games/track-foundry/';
+    await page.goto(editorUrl,{waitUntil:'networkidle'});
+    // Fresh browser context first visits the editor directly. Its own PWA
+    // registration must populate the cache before any game has been visited.
+    await page.waitForFunction(()=>!!navigator.serviceWorker?.controller,{timeout:20000});
+    await page.context().setOffline(true);
+    await page.reload({waitUntil:'load'});
+    assert.equal(await page.locator('#track-name').inputValue(),'The Long Way Home',
+      'Track Foundry must reload offline after direct editor-only first visit');
+    await page.context().setOffline(false);
+    assert.equal(await page.locator('#track-name').inputValue(),'The Long Way Home');
+    assert.equal(await page.locator('#course-preview').evaluate(c=>
+      c.getContext('2d').getImageData(100,100,1,1).data[3]>0),true);
+    await page.locator('#track-name').fill('Morning Junction');
+    await page.locator('#environment').selectOption('forest');
+    const curve=page.locator('#section-editor [data-section="0"][data-key="curve"]');
+    await curve.fill('0.85');await curve.press('Tab');
+    const filePromise=page.waitForEvent('download');
+    await page.locator('#export-track').click();
+    const download=await filePromise,pack=JSON.parse(await fs.readFile(await download.path(),'utf8'));
+    assert.equal(pack.name,'Morning Junction');
+    assert.equal(pack.environment,'forest');
+    assert.equal(pack.sections[0].curve,.85);
+    await page.locator('#import-track').setInputFiles({name:'bad.json',
+      mimeType:'application/json',buffer:Buffer.from('{"bad":true}')});
+    await page.waitForFunction(()=>document.querySelector('#foundry-status').textContent.includes('Import rejected'));
+    assert.equal(await page.locator('#track-name').inputValue(),'Morning Junction');
+    // Source-authored 4.8km track must flow into playable native WebGL.
+    await page.locator('#target-mode').selectOption('sprint');
+    await page.locator('#apply-track').click();
+    await page.waitForURL('**/games/coastal-sprint/');
+    assert.equal(await page.locator('#track').inputValue(),'foundry');
+    assert.match(await page.locator('#objective').textContent(),/TRACK FOUNDRY/);
+    assert.match(await page.locator('#distance').textContent(),/4800 m/);
+    assert.equal(await page.locator('#webgl-view').isVisible(),true);
+    await page.locator('#start').click();
+    await page.keyboard.down('ArrowUp');await page.waitForTimeout(700);
+    assert.ok(Number(await page.locator('#speed').textContent())>0);
+    await page.keyboard.up('ArrowUp');
+    await page.screenshot({path:path.join(out,'racing-003-authored-sprint.png'),fullPage:true});
+    // Offline deep-link after the root-scoped content-addressed worker installs.
+    await page.waitForFunction(()=>!!navigator.serviceWorker?.controller,{timeout:20000});
+    await page.context().setOffline(true);
+    await page.reload({waitUntil:'load'});
+    assert.equal(await page.locator('#track').inputValue(),'foundry');
+    await page.context().setOffline(false);
+    // Reproduce Codex P2: change course *after* the saved Foundry race has
+    // advanced. The new selection must create a 3600 m built-in sprint,
+    // not resume the obsolete 4800 m Foundry world.
+    await page.locator('#start').click();
+    await page.keyboard.down('ArrowUp');
+    await page.waitForTimeout(370);
+    await page.keyboard.up('ArrowUp');
+    await page.locator('#track').selectOption('coast');
+    assert.equal(await page.locator('#overlay-heading').textContent(),'COURSE CHANGED');
+    assert.match(await page.locator('#distance').textContent(),/\/ 3600 m/);
+    assert.equal(await page.locator('#start').textContent(),'START NEW COURSE');
+    await page.locator('#start').click();
+    assert.equal(await page.locator('#overlay').isVisible(),false);
+    assert.match(await page.locator('#distance').textContent(),/\/ 3600 m/,
+      'resume must keep the newly selected built-in course');
+    await page.goto(editorUrl,{waitUntil:'networkidle'});
+    await page.locator('#target-mode').selectOption('coast');
+    await page.locator('#import-track').setInputFiles({name:'original.json',
+      mimeType:'application/json',buffer:Buffer.from(JSON.stringify(pack))});
+    await page.waitForFunction(()=>document.querySelector('#track-name').value==='Morning Junction');
+    await page.locator('#apply-track').click();
+    await page.waitForURL('**/games/coast-run/');
+    assert.equal(await page.locator('#track').inputValue(),'foundry');
+    assert.match(await page.locator('#distance').textContent(),/4800 m/);
+    await page.goto(editorUrl,{waitUntil:'networkidle'});
+    await page.locator('#target-mode').selectOption('supercar');
+    await page.locator('#apply-track').click();
+    await page.waitForURL('**/games/supercar-circuit/');
+    assert.equal(await page.locator('#track').inputValue(),'foundry');
+    assert.match(await page.locator('#objective').textContent(),/8 edited gates/);
+    await page.screenshot({path:path.join(out,'racing-003-authored-circuit.png'),fullPage:true});
+    await page.goto(editorUrl,{waitUntil:'networkidle'});
+    await page.locator('#clear-track').click();
+    await page.goto(origin+'/STREET-RACER/games/coast-run/');
+    assert.notEqual(await page.locator('#track').inputValue(),'foundry');
+    await page.setViewportSize({width:390,height:844});
+    await page.goto(editorUrl);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),
+      'Track Foundry must fit a 390px mobile viewport');
+    await page.screenshot({path:path.join(out,'racing-003-foundry-mobile.png'),fullPage:true});
+    assert.deepEqual(errors,[]);
+    assert.deepEqual(offsite,[]);
+    findings.push({mode:'track-foundry',status:'PASS',pack:pack.name});
+    await page.close();
+  }
+  // A SecurityError can be thrown by the localStorage *getter*, before
+  // getItem() is called. All four games must still initialise and drive.
+  const locked=await browser.newContext({viewport:{width:960,height:760}});
+  await locked.addInitScript(()=>{
+    Object.defineProperty(window,'localStorage',{
+      configurable:true,get(){throw new DOMException('storage denied','SecurityError');}
+    });
   });
-  await editor.waitForFunction(()=>document.querySelector('#track-message').textContent.includes('Import rejected'));
-  assert.equal(await editor.locator('#track-name').inputValue(),'Nightfall Endurance');
-  await editor.screenshot({path:path.join(out,'track-foundry.png'),fullPage:true});
-  await editor.locator('#track-apply').click();
-  await editor.waitForURL('**/STREET-RACER/games/coast-run/');
-  assert.equal(await editor.locator('#track-name-display').textContent(),'Nightfall Endurance');
-  await editor.locator('#start').click();
-  await editor.keyboard.down('KeyA');await editor.waitForTimeout(700);await editor.keyboard.up('KeyA');
-  assert.ok(Number(await editor.locator('#steer').textContent())<-.25,
-    'authored 19.2 km course must respond to A steering');
-  assert.deepEqual(editorErrors,[],'Track Foundry runtime errors');
-  await editor.close();
-  findings.push({mode:'track-foundry',status:'PASS',receipt:'editor / authored circuit / JSON / custom road'});
+  try{
+    for(const mode of ['supercar-circuit','coast-run','outland-road','coastal-sprint']){
+      const page=await locked.newPage(),errors=[];
+      page.on('pageerror',error=>errors.push(error.message));
+      await page.goto('http://127.0.0.1:'+server.address().port+
+        '/STREET-RACER/games/'+mode+'/',{waitUntil:'load'});
+      assert.equal(await page.locator('#start').isVisible(),true,
+        'denied localStorage getter must not prevent '+mode+' loading');
+      assert.notEqual(await page.locator('#track').inputValue(),'foundry');
+      await page.locator('#start').click();
+      assert.equal(await page.locator('#overlay').isVisible(),false);
+      assert.deepEqual(errors,[],'storage-denied page errors: '+mode);
+      await page.close();
+    }
+  }finally{await locked.close();}
+  findings.push({mode:'denied-localStorage',status:'PASS'});
 }finally{
   await browser?.close();await new Promise(resolve=>server.close(resolve));
   await fs.writeFile(path.join(out,'receipt.json'),JSON.stringify(findings,null,2)+'\n');
 }
-console.log('PASS: '+findings.length+' playable monorepo games at the GitHub Pages subpath.');
+console.log('PASS: four playable monorepo racing games plus the RACING-003 Track Foundry integration at the Pages subpath.');

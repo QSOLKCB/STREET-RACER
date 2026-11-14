@@ -37,11 +37,3 @@ visibly crosses the road edge and triggers the simulation's off-road penalty.
 A valid finish requires `|lane| <= 0.95`, keeping the entire car inside
 the asphalt with a deliberate safety margin. Unit tests project actual mesh
 wheel vertices onto the same road-normal axis and check both Q16.16 rules.
-
-## Superseded by RACING-003 for track geometry and length
-
-RACING-003 replaces the previous 5.2 km scenic road and 3.6 km WebGL sprint
-with 19.2 km authored roads, reuses a **pinned** VANILLAJS Track Foundry
-validation/centreline module, and separates the viewer from source-owned
-mutable editor drafts. See `docs/RACING_003.md` for the current contracts.
-Older RACING-002 notes above describe the preceding milestone.

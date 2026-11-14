@@ -1,80 +1,131 @@
 // SPDX-License-Identifier: Apache-2.0
-// RACING-003 adapter: pinned, independently validated VANILLAJS track.v1 packs.
-// Four continuous 4.8 km legs create a 19.2 km authored road with 12 choices.
-// Native editor packs are data only; no embedded scripts or CDN dependencies.
-import {starterTrack,validateTrack,parseTrackJSON,serializeTrack,SECTION_LENGTH,
-  TRACK_TOTAL_LENGTH,trackCenter,trackHalfWidth,trackHeading,
-  chooseTourFork,environmentTheme} from '../../vendor/vanillajs/racing-track/track.js';
-
-export {starterTrack,validateTrack,parseTrackJSON,serializeTrack,environmentTheme};
-export const FOUNDRY_LEGS=4,FOUNDRY_FORKS_PER_LEG=3;
-export const FOUNDRY_TOTAL=TRACK_TOTAL_LENGTH*FOUNDRY_LEGS;
-export const FOUNDRY_FORKS=FOUNDRY_FORKS_PER_LEG*FOUNDRY_LEGS;
-export const TRACK_STORAGE_KEY='street-racer.foundry-track.v1';
-const bounded=(value,min,max)=>Math.max(min,Math.min(max,value));
-
+// RACING-003: adapt the byte-pinned VANILLAJS Track Foundry data contract to
+// STREET-RACER's original safe-integer Q16.16 gameplay. Not a physics import.
+import {TRACK_FORMAT,TRACK_TOTAL_LENGTH,SECTION_LENGTH,ENVIRONMENTS,
+  MAX_TRACK_BYTES,starterTrack,validateTrack,parseTrackJSON,serializeTrack
+} from '../../vendor/vanillajs/demos/racing-lab/track.js';
+export {TRACK_FORMAT,TRACK_TOTAL_LENGTH,SECTION_LENGTH,ENVIRONMENTS,
+  MAX_TRACK_BYTES,starterTrack,validateTrack,parseTrackJSON,serializeTrack};
+export const Q=65536;
+export const PLAYER_TYRE_HALF_WIDTH=1.57;
+export const PACK_STORAGE_KEY='qsol.street-racer.foundry-selected.v1';
+export const FOUNDRY_MODES=Object.freeze(['coast','sprint','supercar']);
+const safeInt=n=>Number.isSafeInteger(n);
+const quant=n=>Math.round(n*Q);
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const mul=(a,b,den=Q)=>Number(BigInt(a)*BigInt(b)/BigInt(den));
+function safeRecord(value,label){
+  if(!value||typeof value!=='object'||Array.isArray(value)||
+     (Object.getPrototypeOf(value)!==Object.prototype&&Object.getPrototypeOf(value)!==null))
+    throw new TypeError(label+' must be a plain object');
+}
+export function compileTrack(pack){
+  const source=validateTrack(pack); // strict, frozen source-owned schema and geometry
+  const sections=source.sections.map(s=>Object.freeze({
+    curveQ:quant(s.curve),widthQ:quant(s.width),forkQ:quant(s.fork)
+  }));
+  const gates=source.gates.map(g=>Object.freeze({xQ:quant(g.x),zQ:quant(g.z)}));
+  const lengthsQ=[0];let lengthQ=0;
+  for(let i=0;i<gates.length;i++){
+    const a=gates[i],b=gates[(i+1)%gates.length];
+    const step=Math.round(Math.hypot(b.xQ-a.xQ,b.zQ-a.zQ));
+    // The source validator already proved every gate separation >= 24 m in
+    // source Float64 coordinates. Component-wise Q16 rounding can shave one
+    // or two integer units from a just-valid edge. Do not reapply the exact
+    // source boundary to rounded endpoints; reject only an unusable segment.
+    if(!safeInt(step)||step<=0)throw new RangeError('invalid quantized circuit segment');
+    lengthQ+=step;lengthsQ.push(lengthQ);
+  }
+  if(!safeInt(lengthQ)||lengthQ<=0)throw new RangeError('circuit perimeter overflow');
+  return Object.freeze({
+    spec:source,
+    sections:Object.freeze(sections),
+    gates:Object.freeze(gates),
+    lengthsQ:Object.freeze(lengthsQ),
+    circuitLengthQ:lengthQ
+  });
+}
+function checkedQ(q,label){
+  if(!safeInt(q))throw new RangeError(label+' must be safe-integer Q16.16');
+  return q;
+}
 function checkRoute(route){
-  if(!Array.isArray(route)||route.length>FOUNDRY_FORKS||
-     route.some(x=>x!=='left'&&x!=='right'))throw new TypeError('invalid 12-fork route history');
+  if(!Array.isArray(route)||route.length>3||
+    route.some(c=>c!=='left'&&c!=='right'))throw new TypeError('invalid fork history');
 }
-export function foundryLeg(distance){
-  if(!Number.isFinite(distance))throw new RangeError('non-finite track distance');
-  const d=bounded(distance,0,FOUNDRY_TOTAL);
-  const leg=Math.min(FOUNDRY_LEGS-1,Math.floor(d/TRACK_TOTAL_LENGTH));
-  return {leg,local:d-leg*TRACK_TOTAL_LENGTH};
+/** Exact integer centreline position, Q16.16. Smoothstep is evaluated with
+ * BigInt intermediate products and truncated toward zero. No float in ticks. */
+export function tourCenterQ(compiled,distanceQ,route=[]){
+  checkedQ(distanceQ,'distance');checkRoute(route);
+  const k=clamp(Math.floor(Math.max(0,distanceQ)/(SECTION_LENGTH*Q)),0,3);
+  const remainder=clamp(distanceQ-k*SECTION_LENGTH*Q,0,SECTION_LENGTH*Q);
+  const tQ=mul(remainder,Q,SECTION_LENGTH*Q);
+  let xQ=0;
+  for(let i=0;i<k;i++){
+    xQ+=compiled.sections[i].curveQ*14;
+    if(i>0&&route[i-1])
+      xQ+=(route[i-1]==='right'?1:-1)*compiled.sections[i-1].forkQ;
+  }
+  xQ+=mul(compiled.sections[k].curveQ*14,tQ);
+  if(k>0&&route[k-1]){
+    const a=clamp(tQ*5,0,Q);
+    const smooth=mul(mul(a,a),3*Q-2*a);
+    xQ+=(route[k-1]==='right'?1:-1)*mul(compiled.sections[k-1].forkQ,smooth);
+  }
+  return checkedQ(xQ,'tour centreline');
 }
-export function foundryCenter(pack,distance,route=[]){
-  checkRoute(route);
-  const {leg,local}=foundryLeg(distance);
-  let base=0;
-  for(let k=0;k<leg;k++)
-    base+=trackCenter(pack,TRACK_TOTAL_LENGTH,route.slice(k*3,k*3+3));
-  return base+trackCenter(pack,local,route.slice(leg*3,leg*3+3));
+export function halfWidthQ(compiled,distanceQ){
+  checkedQ(distanceQ,'distance');
+  const k=clamp(Math.floor(Math.max(0,distanceQ)/(SECTION_LENGTH*Q)),0,3);
+  const previous=k>0?compiled.sections[k-1].widthQ:compiled.sections[0].widthQ;
+  const current=compiled.sections[k].widthQ;
+  const at=Math.max(0,distanceQ-k*SECTION_LENGTH*Q);
+  const tQ=clamp(mul(at,Q,SECTION_LENGTH*Q)*5,0,Q);
+  return previous+mul(current-previous,tQ);
 }
-export function foundryWidth(pack,distance){
-  const {leg,local}=foundryLeg(distance);
-  const width=trackHalfWidth(pack,local);
-  if(leg===0||local>=SECTION_LENGTH/5)return width;
-  const previous=trackHalfWidth(pack,TRACK_TOTAL_LENGTH);
-  const t=local/(SECTION_LENGTH/5),smooth=t*t*(3-2*t);
-  return previous+(width-previous)*smooth;
+/** Ordered circuit is a 1D track-distance parameter along eight authored
+ * planar gate segments. This is not free 2D steering / a rigid-body solver. */
+export function circuitPositionQ(compiled,atQ){
+  checkedQ(atQ,'circuit distance');
+  const total=compiled.circuitLengthQ;
+  const d=((atQ%total)+total)%total;
+  let index=0;
+  while(index<7&&d>=compiled.lengthsQ[index+1])index++;
+  const a=compiled.gates[index],b=compiled.gates[(index+1)%8],
+    span=compiled.lengthsQ[index+1]-compiled.lengthsQ[index],
+    tQ=mul(d-compiled.lengthsQ[index],Q,span);
+  return Object.freeze({xQ:a.xQ+mul(b.xQ-a.xQ,tQ),
+    zQ:a.zQ+mul(b.zQ-a.zQ,tQ),segment:index});
 }
-export function foundryHeading(pack,distance,route=[]){
-  return Math.atan2(foundryCenter(pack,distance+2,route)-
-    foundryCenter(pack,distance-2,route),4);
+export function roadPositionQ(compiled,mode,distanceQ,route=[]){
+  if(mode==='supercar')return circuitPositionQ(compiled,distanceQ);
+  const xQ=tourCenterQ(compiled,distanceQ,mode==='coast'?route:[]);
+  return Object.freeze({xQ,zQ:-distanceQ,segment:clamp(Math.floor(distanceQ/(SECTION_LENGTH*Q)),0,3)});
 }
-export function foundryForkAt(index){
-  if(!Number.isInteger(index)||index<0||index>=FOUNDRY_FORKS)
-    throw new RangeError('invalid fork index');
-  // Three decisions per four-stage leg: no fork at the between-leg seam.
-  const leg=Math.floor(index/3),within=index%3;
-  return leg*TRACK_TOTAL_LENGTH+(within+1)*SECTION_LENGTH;
+export function lateralPositionQ(compiled,atQ,laneQ){
+  checkedQ(laneQ,'lane');
+  return mul(laneQ,halfWidthQ(compiled,atQ)-quant(PLAYER_TYRE_HALF_WIDTH));
 }
-export function foundryChoice(pack,route,playerLane){
-  checkRoute(route);
-  if(!Number.isFinite(playerLane))throw new RangeError('non-finite steering lane');
-  // Driver position is maintained relative to the current road centreline.
-  // Both branches diverge continuously after the gate; no teleport at commit.
-  const choice=playerLane<0?'left':'right';
-  const {leg}=foundryLeg(foundryForkAt(route.length));
-  const local=route.slice(leg*3);
-  // Exercise the same helper used by VANILLAJS's editor/driver contract.
-  if(chooseTourFork(pack,local,trackCenter(pack,
-    (route.length%3+1)*SECTION_LENGTH,local)+playerLane)!==choice)
-    throw new Error('inconsistent track fork classification');
-  return choice;
+export function selectedTrackFromStorage(storage,mode){
+  if(!FOUNDRY_MODES.includes(mode))return null;
+  try{
+    const value=storage?.getItem(PACK_STORAGE_KEY);
+    if(typeof value!=='string'||value.length>MAX_TRACK_BYTES+200)return null;
+    const parsed=JSON.parse(value);
+    safeRecord(parsed,'selected pack');
+    if(Object.keys(parsed).sort().join(',')!=='mode,track'||
+       parsed.mode!==mode)return null;
+    // Validate source geometry *and* integer compilation before permitting a
+    // saved selection to affect game startup. Bad storage never bricks a game.
+    return compileTrack(parsed.track).spec;
+  }catch{return null;} // Never block the existing built-in game.
 }
-export function foundryLateralMetres(pack,distance,lane,tyreHalfWidth=1.57){
-  if(!Number.isFinite(lane))throw new RangeError('non-finite lateral lane');
-  return lane*Math.max(1,foundryWidth(pack,distance)-tyreHalfWidth);
+export function storeSelectedTrack(storage,mode,pack){
+  if(!FOUNDRY_MODES.includes(mode))throw new RangeError('unsupported racing game');
+  const selected=compileTrack(pack).spec,text=JSON.stringify({mode,track:selected});
+  if(text.length>MAX_TRACK_BYTES+200)throw new RangeError('selected pack too large');
+  storage.setItem(PACK_STORAGE_KEY,text);
 }
-export function foundryEnvironmentTrack(pack,configTracks){
-  // Scene colours are an original renderer choice; validated pack metadata
-  // stays inert and retains the upstream environment vocabulary.
-  return configTracks[({coast:'coast',forest:'alpine',canyon:'canyon',night:'desert'})[pack.environment]];
-}
-export function loadTrackFromSession(session){
-  if(!session||typeof session.getItem!=='function')return null;
-  const raw=session.getItem(TRACK_STORAGE_KEY);
-  return raw===null?null:parseTrackJSON(raw);
+export function sourceEnvironmentToGame(name){
+  return Object.freeze({coast:'coast',canyon:'canyon',forest:'alpine',night:'desert'})[name];
 }

@@ -2,9 +2,9 @@
 // Offline-first, inert-data Track Foundry editor and playable Q16.16 circuit.
 // No dynamic source loading, eval, remote service, or implicit save mutations.
 import {starterTrack,validateTrack,parseTrackJSON,serializeTrack,
-  TRACK_STORAGE_KEY,foundryCenter,foundryWidth} from '../../shared/racer/foundry.js';
-import {SECTION_LENGTH,TRACK_TOTAL_LENGTH,trackCenter} from '../../vendor/vanillajs/racing-track/track.js';
-import {createCircuit,tickCircuit,circuitSnapshot} from '../../shared/racer/circuit.js';
+  TRACK_STORAGE_KEY,foundryCenter,foundryWidth} from '../../shared/racer/foundry-endurance.js';
+import {SECTION_LENGTH,TRACK_TOTAL_LENGTH,trackCenter} from '../../vendor/vanillajs/demos/racing-lab/track.js';
+import {createCircuit,tickCircuit,circuitSnapshot} from '../../shared/racer/circuit-endurance.js';
 import {FixedClock} from '../../vendor/vanillajs/modules/time/index.js';
 const $=id=>document.getElementById(id),canvas=$('track-preview'),ctx=canvas.getContext('2d');
 if(!ctx)throw new Error('Track Foundry requires Canvas2D');
@@ -232,7 +232,7 @@ pauseButton.addEventListener('click',()=>pauseCircuit('CIRCUIT PAUSED · Press D
 $('track-apply').addEventListener('click',()=>{
   const pack=valid();if(!pack)return;
   if(target.value==='circuit'){circuit=null;startCircuit(pack);return;}
-  const targetPath=target.value==='coast'?'../coast-run/':'../coastal-sprint/';
+  const targetPath=target.value==='coast'?'../endurance-coast-run/':'../endurance-coastal-sprint/';
   try{sessionStorage.setItem(TRACK_STORAGE_KEY,serializeTrack(pack));
     window.location.assign(targetPath);
   }catch(error){note('Cannot save the track to session storage: '+error.message,true);}

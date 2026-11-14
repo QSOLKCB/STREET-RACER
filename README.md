@@ -26,6 +26,16 @@
 
 ---
 
+## RACING-003: Track Foundry Integration
+
+[**Track Foundry**](games/track-foundry/index.html) lets you author original
+four-stage touring routes, physically different branches and eight-gate racing
+circuits. It accepts and exports the source-pinned VANILLAJS Track Foundry
+JSON format, compiles game distances and lane geometry into Q16.16, and sends
+validated courses to **COAST RUN**, **COASTAL SPRINT 3D** (authored 4.8 km),
+or **VELOCITY II**. The existing career and built-in roads stay available.
+[Design, scope and verification](docs/RACING_003.md).
+
 ## Welcome to Redline County
 
 It is the summer of ’67. Your garage is empty, your budget is $2,400, and the
@@ -268,28 +278,32 @@ All new game content is original and is **inspired by** retro racing genres; it 
 
 COAST RUN now has four 1,300 m stages, three lane-selected forks with deterministic histories, palette and road-curve changes, and timed checkpoints. VELOCITY II and the combat racers gain nitro momentum that bleeds off gradually, tactical rival lane changes and integer longitudinal swept-contact detection. COASTAL SPRINT 3D adds an original 3,600 m winding WebGL course, scenery and rival traffic, with Canvas2D fallback. The existing STREET-RACER Q16.16 simulation remains authoritative; VANILLAJS RACING-002's Float64 lab is a design reference, not a copied simulation. See [adoption details](docs/RACING_002_ADOPTION.md).
 
-## RACING-003 — Track Foundry integration (2026)
+## RACING-003 Endurance Collection — merged-source integration
 
-[**Open the Track Foundry**](games/track-foundry/index.html) to edit a native,
-source-pinned `qsol.vanillajs.track.v1` pack: four 1,200 m road sections,
-curves, half-widths, fork separations and **eight draggable circuit gates**.
-The editor validates, exports, imports and applies inert JSON packs; no user
-JavaScript is executed. Its circuit test uses the edited gate coordinates in
-actual 60 Hz Q16.16 driving. Three built-in JSON presets ship locally.
+**Two non-destructive Track Foundry workflows now coexist.** The original
+RACING-003 [Track Foundry](games/track-foundry/index.html) remains source-
+compatible with the explicit, locally saved 4.8 km/three-fork integration
+from PR #5. Its exact Q16.16 core, 16 KiB validator, save controls and
+original arcade races remain unchanged.
 
-**Longer roads and real steering:** COAST RUN and COASTAL SPRINT 3D now run
-**19.2 km** using four continuous 4.8 km authored legs, with **12 physical
-left/right route decisions**. VELOCITY II runs **14.4 km** and OUTLAND ROAD
-runs **12 km**. A/D and left/right arrows drive a stronger bounded lateral
-response; the Canvas car now moves side-to-side rather than staying welded to
-screen centre, and the WebGL camera only partially follows its lateral motion.
-The HUD displays the signed steering lane. Every game is browser-tested using
-real A and D key presses, not synthetic simulation mutations.
+The [**Track Foundry Studio**](games/track-foundry-studio/index.html) from
+PR #6 offers source-compatible import/export, three bundled local presets,
+eight draggable circuit gates and a separately drivable ten-lap Q16.16
+circuit. It powers four original **endurance editions**, with visibly
+responsive A/D lateral steering, scene-specific geometry and a signed
+steering HUD. These are independent URLs so neither milestone overwrites
+the other's numerical or save semantics.
 
-The VANILLAJS Track Foundry donor lives in
-`vendor/vanillajs/racing-track/track.js`, copied byte-for-byte from
-`QSOLKCB/VANILLAJS` commit
-`4d55d06ac3852307e7013468fff7b195da548929`; its SHA-256 is recorded
-in the existing, enforced `vendor/PROVENANCE.json`. Track packs use that
-unchanged strict schema. See [docs/RACING_003.md](docs/RACING_003.md) for
-math, trust boundaries, editor controls and the determinism limits.
+| Endurance edition | Course | Page |
+| --- | --- | --- |
+| VELOCITY II Endurance | 14.4 km | [Play](games/endurance-supercar-circuit/index.html) |
+| COAST RUN Endurance | 19.2 km, 12 forks | [Play](games/endurance-coast-run/index.html) |
+| COASTAL SPRINT 3D Endurance | 19.2 km, streamed WebGL | [Play](games/endurance-coastal-sprint/index.html) |
+| OUTLAND ROAD Endurance | 12 km | [Play](games/endurance-outland-road/index.html) |
+
+Both share the **single byte-pinned VANILLAJS** `track.v1` donor already
+in `vendor/vanillajs/demos/racing-lab/track.js`. The source-pinned Q16
+compiler from PR #5 is preserved in `shared/racer/foundry.js`; the long-
+distance runtime is separately named `*-endurance.js`. No compiled code,
+runtime packages or online service are introduced. The existing root career
+game is untouched. See [Endurance integration evidence](docs/RACING_003_ENDURANCE.md).

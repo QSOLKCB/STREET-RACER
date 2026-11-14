@@ -45,21 +45,25 @@ COAST RUN commits three route choices at 1,300 m thresholds. Forks change palett
 
 VANILLAJS reference: merged PR #84 head `5bc76a58d8d87284d8138f3ee5bd0f35dbb54bbe`. Existing SHA-256-pinned vendor code remains unchanged.
 
-## RACING-003 — long-road and authoring upgrade
+## RACING-003 authored Track Foundry contract
 
-RACING-003 adds `games/track-foundry/` (author/editor + interactive gate
-circuit), `shared/racer/foundry.js` (VANILLAJS bridge) and
-`shared/racer/circuit.js` (Q16.16 circuit mode). It does not move or change
-the original root career package.
+See [RACING_003.md](RACING_003.md) for the source SHA, Q16.16 integration,
+explicit stored-pack ownership, authored road/circuit semantics, compatibility
+and verification. The editable circuit is gate-distance-parametric, not an
+unclaimed free-roaming 2D kinematic solver. Existing Q16.16 race modes, root
+career and pinned vendor files retain their independent evidence boundaries.
 
-The main COAST RUN and COASTAL SPRINT now use a source-pinned authored
-4 × 1,200 m pack **repeated in four continuous legs** (19.2 km).
-Every leg contributes three new route choices; the physical world X centreline
-depends on the complete ordered route history, and the renderer and width
-rules sample those same functions. A fork changes the following section's
-physical centreline smoothly rather than only its color. The editor's
-eight polygon gates drive both its circuit road and checkpoint targets.
+## Integration resolution — Track Foundry and Endurance Studio
 
-All packs are strict, immutable copies of the upstream inert-data format.
-The only persistence is explicit sessionStorage hand-off after the editor
-validates a pack; no automatic upload or executable mod import is allowed.
+The independently authored RACING-003 branches have been reconciled *without
+silently replacing either implementation*. The classic arcade and original
+Track Foundry from PR #5 are unchanged; PR #6's enhanced road-simulation
+modules are namespaced as `shared/racer/*-endurance.js`, and its runnable
+courses are `games/endurance-*/`. PR #6's advanced creator is now
+`games/track-foundry-studio/`, not a replacement for the saved-pack editor.
+
+Both use the same source-pinned upstream `track.v1` schema from
+`vendor/vanillajs/demos/racing-lab/track.js`, which remains indexed by the
+existing SHA-256 vendor provenance manifest. Independent Node and Chromium
+suites cover the two numerical paths, both editors and their offline entries.
+The static site inventory is regenerated and strictly pinned before merging.

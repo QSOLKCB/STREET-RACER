@@ -2,7 +2,7 @@ name: Test and deploy STREET RACER
 
 on:
   push:
-    branches: [main, feat/racing-003-track-foundry]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -41,6 +41,7 @@ jobs:
         run: |
           node tests/browser.mjs
           node tests/racer-browser.mjs
+          node tests/racer-endurance-browser.mjs
       - name: Preserve browser evidence, including failures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -94,6 +94,13 @@
     },
     {
       "repository": "QSOLKCB/VANILLAJS",
+      "commit": "4d55d06ac3852307e7013468fff7b195da548929",
+      "source": "demos/racing-lab/track.js",
+      "local": "vendor/vanillajs/demos/racing-lab/track.js",
+      "sha256": "e81fdb79e3378273c1623daea58fbfb538d6d9da71a8a214ec4bf2eaa1c765f2"
+    },
+    {
+      "repository": "QSOLKCB/VANILLAJS",
       "commit": "227dd5ee0f2821b8e30a151524830f0a0027cf11",
       "source": "LICENSE",
       "local": "vendor/vanillajs/LICENSE",
@@ -126,13 +133,6 @@
       "source": "NOTICE",
       "local": "vendor/vanillajs/NOTICE",
       "sha256": "2612225a7b720c855ee22e049be6e2dec2c3d7b2c6a4a60c3677f192ac515a7d"
-    },
-    {
-      "repository": "QSOLKCB/VANILLAJS",
-      "commit": "4d55d06ac3852307e7013468fff7b195da548929",
-      "source": "demos/racing-lab/track.js",
-      "local": "vendor/vanillajs/racing-track/track.js",
-      "sha256": "e81fdb79e3378273c1623daea58fbfb538d6d9da71a8a214ec4bf2eaa1c765f2"
     }
   ]
 }

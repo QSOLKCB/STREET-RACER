@@ -7,8 +7,8 @@ import {quatMultiply} from '../../vendor/vanillajs/modules/math/index.js';
 import {Q} from './sim.js';
 import {sprintCenter,sprintHeading,SPRINT_METERS,SPRINT_ROAD_HALF_WIDTH_METRES,
   sprintLateralMetres} from './course.js';
-import {foundryCenter,foundryHeading,foundryWidth,foundryLateralMetres,
-  FOUNDRY_TOTAL} from './foundry.js';
+import {TRACK_TOTAL_LENGTH,roadPositionQ,halfWidthQ,lateralPositionQ,Q as TRACK_Q
+} from './foundry.js';
 
 const COLORS=Object.freeze({
   asphalt:[.13,.17,.23],asphaltAlt:[.16,.20,.25],
@@ -48,36 +48,25 @@ function roadside(out,cx,z,yaw,side,stage,index){
   }
 }
 
-// Stream anchors advance in 200 m increments. A full 240 m of asphalt
-// behind each anchor keeps the road visible under the chase camera (16 m
-// behind the driver), including immediately after a window boundary.
-// Bound total generated road to 240 m rear + 1,400 m forward, never
-// streaming the entire 19.2 km authored course.
-export const SPRINT_STREAM_STEP_METRES=200;
-export const SPRINT_STREAM_REAR_METRES=240;
-export const SPRINT_STREAM_FORWARD_METRES=1400;
-export function sprintStreamBounds(windowStart,pack=null){
-  if(!Number.isFinite(windowStart)||windowStart<0)
-    throw new RangeError('invalid sprint streaming window');
-  if(!pack)return {first:0,limit:SPRINT_METERS};
-  const anchor=Math.min(FOUNDRY_TOTAL,
-    Math.floor(windowStart/SPRINT_STREAM_STEP_METRES)*SPRINT_STREAM_STEP_METRES);
-  return {
-    first:Math.max(0,anchor-SPRINT_STREAM_REAR_METRES),
-    limit:Math.min(FOUNDRY_TOTAL,anchor+SPRINT_STREAM_FORWARD_METRES)
-  };
+const roadTotal=pack=>pack?TRACK_TOTAL_LENGTH:SPRINT_METERS;
+function roadSample(d,pack){
+  if(!pack)return {x:sprintCenter(d),z:-d,heading:sprintHeading(d),
+    half:SPRINT_ROAD_HALF_WIDTH_METRES};
+  const at=n=>roadPositionQ(pack,'sprint',Math.round(n*TRACK_Q),[]);
+  const point=at(d),ahead=at(d+2),behind=at(d-2);
+  return {x:point.xQ/TRACK_Q,z:point.zQ/TRACK_Q,
+    heading:Math.atan2(ahead.xQ-behind.xQ,4*TRACK_Q),
+    half:halfWidthQ(pack,Math.round(d*TRACK_Q))/TRACK_Q};
 }
-export function sprintSceneGeometry(pack=null,route=[],windowStart=0){
-  const out=[];
-  // The legacy, un-authored 3.6 km geometry remains unchanged.
-  // Authored geometry retains ground behind the camera at every 200 m seam.
-  const {first,limit}=sprintStreamBounds(windowStart,pack);
-  for(let m=first;m<limit;m+=20){
-    const at=m+10,x=pack?foundryCenter(pack,at,route):sprintCenter(at),
-      z=-at,yaw=pack?foundryHeading(pack,at,route):sprintHeading(at);
-    const half=pack?foundryWidth(pack,at):SPRINT_ROAD_HALF_WIDTH_METRES;
-    const stage=Math.min(3,Math.floor(at/(pack?1200:900))%4);
-    const ground=pack?({coast:COLORS.green,canyon:COLORS.sand,forest:COLORS.tree,night:COLORS.ridge})[pack.environment]:
+export function sprintSceneGeometry(pack=null){
+  const out=[],total=roadTotal(pack);
+  // Fixed-size, bounded source-generated mesh: create once on load, then
+  // only update the moving car mesh each frame (OPT invariant reuse).
+  for(let m=0;m<total;m+=20){
+    const at=m+10,{x,z,heading:yaw,half}=roadSample(at,pack);
+    const stage=Math.min(3,Math.floor(at/(total/4)));
+    const ground=pack?({coast:COLORS.green,canyon:COLORS.sand,
+      forest:COLORS.tree,night:COLORS.ridge}[pack.spec.environment]):
       stage===0?COLORS.green:stage===1?COLORS.sand:stage===2?COLORS.ridge:COLORS.green;
     oriented(out,x,-.78,z,185,.30,20,ground,yaw);
     oriented(out,x,-.08,z,2*half,.26,20.25,m%40===0?COLORS.asphalt:COLORS.asphaltAlt,yaw);
@@ -100,20 +89,15 @@ export function sprintSceneGeometry(pack=null,route=[],windowStart=0){
       roadside(out,x,z,yaw,1,stage,m/100);
     }
   }
-  const interval=pack?1200:900;
-  for(let m=interval;m<=(pack?FOUNDRY_TOTAL:SPRINT_METERS);m+=interval){
-    if(m<first||m>limit)continue;
-    const x=pack?foundryCenter(pack,m,route):sprintCenter(m),
-      z=-m,yaw=pack?foundryHeading(pack,m,route):sprintHeading(m),
-      half=pack?foundryWidth(pack,m):SPRINT_ROAD_HALF_WIDTH_METRES;
+  for(let m=total/4;m<=total;m+=total/4){
+    const {x,z,heading:yaw,half}=roadSample(m,pack);
     for(const side of [-1,1]){
       const px=x+Math.cos(yaw)*side*(half+1),
         pz=z+Math.sin(yaw)*side*(half+1);
       oriented(out,px,4.2,pz,.85,8.4,.85,side===1?COLORS.pink:COLORS.cyan,yaw);
     }
-    const isFinish=m===(pack?FOUNDRY_TOTAL:SPRINT_METERS);
-    oriented(out,x,8.5,z,half*2+4,1,.8,isFinish?COLORS.lamp:COLORS.cyan,yaw);
-    oriented(out,x,.015,z,2*half,.055,1.5,isFinish?COLORS.lamp:COLORS.edge,yaw);
+    oriented(out,x,8.5,z,2*half+4,1,.8,m===total?COLORS.lamp:COLORS.cyan,yaw);
+    oriented(out,x,.015,z,2*half,.055,1.5,m===total?COLORS.lamp:COLORS.edge,yaw);
   }
   return out;
 }
@@ -122,11 +106,11 @@ function hexRgb(hex){
   return [1,3,5].map(at=>parseInt(hex.slice(at,at+2),16)/255);
 }
 function addCar(out,s,lane,d,color,player=false){
-  const heading=s.pack?foundryHeading(s.pack,d,s.route):sprintHeading(d),
-    cx=s.pack?foundryCenter(s.pack,d,s.route):sprintCenter(d),
+  const pack=s.foundry,{x:cx,z:cz,heading}=roadSample(d,pack),
     c=Math.cos(heading),sn=Math.sin(heading);
-  const lateral=s.pack?foundryLateralMetres(s.pack,d,lane):sprintLateralMetres(lane);
-  const x=cx+c*lateral,z=-d+sn*lateral;
+  const lateral=pack?lateralPositionQ(pack,Math.round(d*Q),Math.round(lane*Q))/Q:
+    sprintLateralMetres(lane);
+  const x=cx+c*lateral,z=cz+sn*lateral;
   const metal=hexRgb(color);
   // Every body-part offset must rotate into the car's local forward axis;
   // shifting only world Z pushed headlights/spoilers sideways on a curve.
@@ -159,35 +143,22 @@ export function sprintTrafficGeometry(s){
   return out;
 }
 
-export function createSprintRenderer(canvas){
+export function createSprintRenderer(canvas,pack=null){
   const renderer=new Renderer(canvas);
-  const road=renderer.mesh([]);
+  const road=renderer.mesh(sprintSceneGeometry(pack));
   const traffic=renderer.mesh([]);
-  let disposed=false,lastWindow=-1,lastRoute='',lastPack=null;
+  let disposed=false;
   return {
     draw(s){
       if(disposed)throw new Error('3D scene disposed');
-      const d=s.distanceQ/Q,route=s.route.join(',');
-      // OPT invariant reuse: geometry is remeshed only every 200 m or after
-      // an authored fork decision. Every rebuilt mesh spans behind the
-      // chase camera; otherwise the road under the player disappears at seams.
-      const windowIndex=Math.floor(Math.max(0,d)/SPRINT_STREAM_STEP_METRES);
-      if(lastWindow!==windowIndex||lastRoute!==route||lastPack!==s.pack){
-        const anchor=windowIndex*SPRINT_STREAM_STEP_METRES;
-        renderer.update(road,sprintSceneGeometry(s.pack,s.route,anchor));
-        lastWindow=windowIndex;lastRoute=route;lastPack=s.pack;
-      }
-      const heading=s.pack?foundryHeading(s.pack,d,s.route):sprintHeading(d),
-        lateral=s.pack?foundryLateralMetres(s.pack,d,s.laneQ/Q):
-          sprintLateralMetres(s.laneQ/Q);
-      const center=s.pack?foundryCenter(s.pack,d,s.route):sprintCenter(d);
-      const normal=Math.cos(heading),tangent=Math.sin(heading);
-      // Follow 35% of lateral motion so A/D visibly translates the vehicle,
-      // rather than keeping it centered as if the road were on rails.
-      const cx=center+normal*lateral*.35,z=-d+tangent*lateral*.35;
-      const ahead=Math.min(s.pack?FOUNDRY_TOTAL:SPRINT_METERS,d+85);
-      const lookX=(s.pack?foundryCenter(s.pack,ahead,s.route):sprintCenter(ahead))+
-        lateral*.12*Math.cos(s.pack?foundryHeading(s.pack,ahead,s.route):sprintHeading(ahead));
+      const d=s.distanceQ/Q,point=roadSample(d,s.foundry),
+        heading=point.heading,
+        lateral=s.foundry?lateralPositionQ(s.foundry,s.distanceQ,s.laneQ)/Q:
+          sprintLateralMetres(s.laneQ/Q),
+        cx=point.x+Math.cos(heading)*lateral,
+        z=point.z+Math.sin(heading)*lateral;
+      const look=roadSample(Math.min(roadTotal(s.foundry),d+85),s.foundry);
+      const lookX=look.x+lateral*Math.cos(look.heading);
       const yaw=Math.atan2(lookX-cx,75);
       const qYaw=[0,-Math.sin(yaw/2),0,Math.cos(yaw/2)];
       const qPitch=[Math.sin(-.27),0,0,Math.cos(-.27)];

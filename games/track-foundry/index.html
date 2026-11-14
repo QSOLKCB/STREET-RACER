@@ -1,64 +1,35 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#081522">
-<meta name="description" content="An original offline Track Foundry for long branching roads and editable driving circuits.">
-<title>TRACK FOUNDRY · QSOL-IMC Racing Arcade</title>
-<link rel="icon" type="image/svg+xml" href="../../assets/icon.svg">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RACING-003 | Track Foundry — STREET-RACER</title><meta name="theme-color" content="#0c1525">
 <link rel="stylesheet" href="../../shared/racer/styles.css">
-<link rel="stylesheet" href="./foundry.css"></head><body>
-<div class="shell">
-<header class="topbar">
-<a class="logo" href="../../arcade-hub.html">QSOL-IMC <span>///</span> TRACK FOUNDRY</a>
-<nav class="links"><a href="../coast-run/">COAST RUN</a><a href="../coastal-sprint/">COASTAL SPRINT 3D</a>
-<a href="../../arcade-hub.html">RACING ARCADE</a></nav>
-</header><main>
-<div class="headline"><div>
-<div class="eyebrow">RACING-003 / SOURCE-OWNED TRACK AUTHORING</div>
-<h1>BUILD YOUR <span>ROAD.</span></h1>
-<p class="subtitle">Twelve real fork decisions across a 19.2 km road. Edit the centreline, widths, terrain and eight circuit gates. Then drive it.</p>
-</div><div class="eyebrow">VALIDATED JSON · NO DEPENDENCIES · OFFLINE FIRST</div></div>
+<link rel="stylesheet" href="../../shared/racer/foundry-editor.css"></head>
+<body><div class="shell"><header class="topbar"><a class="logo" href="../../arcade-hub.html">QSOL-IMC <span>///</span> TRACK FOUNDRY</a>
+<nav class="links" aria-label="Navigation"><a href="../../arcade-hub.html">RACING ARCADE</a><a href="../../">STREET RACER</a></nav></header>
+<main>
+<div class="foundry-head"><div class="eyebrow">RACING-003 / SOURCE-PINNED VANILLAJS TRACKS</div>
+<h1>BUILD THE <em>ROAD.</em></h1><p>Four authored road sections, eight circuit checkpoints, real left/right branches and a race you can drive. Native HTML + Canvas, deterministic Q16.16 gameplay, entirely offline.</p></div>
+<section class="foundry-panel" aria-label="Track metadata">
+<label>TRACK NAME<input id="track-name" type="text" maxlength="48" value="The Long Way Home"></label>
+<label>ENVIRONMENT<select id="environment"><option value="coast">Sapphire Coast</option><option value="canyon">Cinder Canyon</option><option value="forest">Forest Run</option><option value="night">Night Drive</option></select></label>
+<label>DRIVE IT IN<select id="target-mode"><option value="coast">COAST RUN / branching tour</option><option value="sprint">COASTAL SPRINT 3D / 4.8 km</option><option value="supercar">VELOCITY II / eight-gate circuit</option></select></label>
+</section>
 <div class="foundry-grid">
-<section class="workbench" aria-label="Interactive track preview">
-<div class="workbench-top"><strong id="preview-title">AUTHORED ROAD / OVERVIEW</strong>
-<span id="preview-position">4 × 4,800 m · 12 forks</span></div>
-<canvas id="track-preview" width="1024" height="512" tabindex="0" aria-label="Editable road preview with 8 branch centreline histories, or draggable numbered circuit gates."></canvas>
-<div class="workbench-bottom"><div>
-<strong id="telemetry">READY TO AUTHOR</strong>
-<span id="drive-hint">Road preview · select Circuit to drag gates</span></div>
-<button class="small-button" id="circuit-drive" type="button">DRIVE CIRCUIT</button>
-<button class="small-button" id="circuit-pause" type="button" disabled>PAUSE</button></div>
+<section class="foundry-panel" aria-labelledby="road-title"><h2 id="road-title">ROAD SECTIONS</h2>
+<p>Four 1,200 m sections. Curve bends the road, half-width sets the paved corridor, and fork separation changes real road coordinates after each decision.</p>
+<div id="section-editor"></div>
+<h2>ORDERED CIRCUIT GATES</h2><p>Drag gate markers in Circuit preview or edit their X/Z coordinates. Self-crossing and overlapping layouts are rejected.</p><div id="gate-editor" hidden></div>
 </section>
-<section class="workbench settings-panel" aria-label="Track definition editor">
-<div class="eyebrow">01 / DESIGN & VALIDATE</div>
-<div class="field"><label for="track-preset">SOURCE PRESET</label>
-<select id="track-preset"><option value="starter">VANILLAJS starter</option>
-<option value="coastal-drift">Coastal Drift</option>
-<option value="silver-ridge">Silver Ridge</option>
-<option value="cinder-canyon">Cinder Canyon</option></select></div>
-<div class="field"><label for="track-name">TRACK NAME</label><input id="track-name" maxlength="48" value="The Long Way Home" autocomplete="off"></div>
-<div class="row-fields"><div class="field"><label for="track-environment">ENVIRONMENT</label>
-<select id="track-environment"><option value="coast">COAST</option><option value="canyon">CANYON</option>
-<option value="forest">FOREST</option><option value="night">NIGHT</option></select></div>
-<div class="field"><label for="track-target">PLAY IN</label>
-<select id="track-target"><option value="coast">COAST RUN · 19.2 KM</option>
-<option value="sprint">COASTAL SPRINT 3D · 19.2 KM</option>
-<option value="circuit">CIRCUIT TEST · 10 LAPS</option></select></div></div>
-<details open><summary>4 ROAD SECTIONS · CURVE / WIDTH / FORK</summary>
-<div id="track-sections"></div></details>
-<details><summary>8 CIRCUIT GATES · X / Z (DRAG OR TYPE)</summary>
-<div id="track-gates"></div></details>
-<div id="track-message" class="track-status" role="status" aria-live="polite">Validating editor…</div>
-<div class="editor-buttons">
-<button id="track-apply" class="btn-primary" type="button">VALIDATE & DRIVE</button>
-<button id="track-export" class="small-button" type="button">EXPORT JSON</button>
-<label class="small-button import-label" for="track-import">IMPORT JSON</label>
-<input id="track-import" type="file" accept=".json,application/json" hidden>
-<button id="track-reset" class="small-button" type="button">RESTORE STARTER</button>
-</div>
+<section class="foundry-panel" aria-labelledby="preview-title"><h2 id="preview-title">COURSE PREVIEW</h2>
+<canvas id="course-preview" width="760" height="360" aria-label="Editable road and circuit schematic" tabindex="0"></canvas>
+<p>Scenic Tour shows all eight possible three-fork histories; the 3D sprint follows one authored centreline. Circuit shows the actual eight-gate polygon.</p>
+<div id="foundry-status" aria-live="polite" role="status">Track Foundry ready</div>
+</section></div>
+<section class="foundry-panel foundry-controls" aria-label="Track actions">
+<button id="track-new" type="button">NEW TRACK</button><button id="export-track" type="button">EXPORT JSON ↓</button>
+<label class="import">IMPORT JSON <input id="import-track" type="file" accept=".json,application/json"></label>
+<button id="apply-track" type="button" class="btn-primary">VALIDATE &amp; RACE ↗</button>
+<button id="clear-track" type="button">CLEAR SAVED TRACK</button>
 </section>
-</div>
-<p class="guide">Tour mode shows eight distinct branch centreline histories for the first 4.8 km leg; each subsequent leg repeats the four editable section definitions but has its own three new fork decisions. In Circuit mode, drag the numbered gates to shape the actual playable track. W/↑ gas, S/↓ brake, A/D or ←/→ steer. File import is limited to 16 KiB, parsed as inert data and validated before use.</p>
-</main><footer class="footer"><span>QSOL-IMC TRACK FOUNDRY · VANILLAJS qsol.vanillajs.track.v1</span>
-<span>APACHE-2.0 · PHYSICAL BRANCH GEOMETRY · DETERMINISTIC Q16.16 CIRCUIT</span></footer>
-</div><script type="module" src="./editor.js"></script></body></html>
+<p class="foundry-note">Track packs are data only, limited to 16 KiB, schema-checked before use and stored locally only when you choose <b>Validate &amp; Race</b>. No account, cloud service or third-party racing assets. The exact VANILLAJS schema is pinned in vendor provenance; the game's motion stays Q16.16, while Canvas and WebGL are presentation layers.</p>
+</main><footer class="footer"><span>QSOL-IMC · RACING-003 · APACHE-2.0</span><span>YOUR ROAD. YOUR RACE. YOUR RULES.</span></footer></div>
+<script type="module" src="../../shared/racer/foundry-editor.js"></script></body></html>

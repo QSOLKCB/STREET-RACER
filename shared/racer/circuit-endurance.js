@@ -3,7 +3,7 @@
 // with a fixed 60 Hz Q16.16 driving state and finite bounded visual sampling.
 // Sin/cos are rounded at the tick boundary: same-runtime deterministic,
 // not a mathematical claim of cross-platform exact trigonometry.
-import {validateTrack,starterTrack} from './foundry.js';
+import {validateTrack,starterTrack} from './foundry-endurance.js';
 export const Q=65536,CIRCUIT_HZ=60,DEFAULT_LAPS=10;
 const q=v=>Math.round(v*Q);
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));

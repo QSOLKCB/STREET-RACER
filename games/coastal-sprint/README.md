@@ -5,11 +5,3 @@ An original native WebGL 3D road racer, adapting design lessons from VANILLAJS R
 The scenery, cars and geometry are source-owned. This is not a port or copy of a commercial game's assets or VANILLAJS's Float64 demo kernel. It reuses the already SHA-256-pinned VANILLAJS WebGL renderer, math and fixed clock, plus the already pinned SONIFICATION audio receiver.
 
 Launch index.html on the packaged site. Play with W/arrow keys, steering, Space nitro and the on-screen touch controls.
-
-## RACING-003
-
-The native WebGL sprint is now 19.2 km, using the same validated Track Foundry
-course definition as COAST RUN. The visible road uses a bounded streaming
-near-window rather than preallocating all sections. Vehicle lateral motion
-remains apparent because the chase camera only partially follows A/D input.
-Authored packs can be applied from [Track Foundry](../track-foundry/index.html).

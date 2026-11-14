@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Canvas pseudo-3D: procedural, original geometry only. No external textures.
 import {Q,curvature,altitude} from './sim.js';
-import {modeSettings} from './config.js';
-import {tourPalette,routeBend} from './course.js';
-import {foundryCenter,foundryWidth,foundryLeg,foundryForkAt,FOUNDRY_FORKS,
-  foundryEnvironmentTrack} from './foundry.js';
-import {TRACKS} from './config.js';
+import {modeSettings,TRACKS} from './config.js';
+import {roadPositionQ,halfWidthQ,sourceEnvironmentToGame} from './foundry.js';
+import {tourPalette,routeBend,TOUR_STAGE_METERS} from './course.js';
 export const W=960,H=540,VIEW_METERS=920;
 const horizon=190,steps=88;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -13,25 +11,23 @@ function poly(ctx,points,color){
   ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
   for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);ctx.closePath();ctx.fill();
 }
-export function project(z,distance,lane,track,route=[],pack=null){
+export function project(z,distance,lane,track,route=[],pack=null,mode='coast'){
   const f=clamp(1-z/VIEW_METERS,0,1),perspective=Math.pow(f,1.46);
   const y=horizon+perspective*(H-horizon);
-  const nearWidth=5+455*Math.pow(f,1.65);
-  const width=pack?nearWidth*foundryWidth(pack,distance+z)/12:nearWidth;
-  const curved=curvature(distance+z,track)-curvature(distance,track);
-  const branching=pack?
-    (foundryCenter(pack,distance+z,route)-foundryCenter(pack,distance,route))*2.3:
-    (routeBend(distance+z,route)-routeBend(distance,route))*155*(1-f);
-  const bend=curved*155*(1-f)+branching-Math.sin(distance/460)*65*f;
-  // A/D moves the *car* and the chase camera follows only part-way.
-  // At the road foot, a full ±1 lane places tyres near the edge.
-  const center=W/2+bend-lane*width*.47;
+  let width=5+455*Math.pow(f,1.65),bend;
+  if(pack){
+    const before=roadPositionQ(pack,mode,Math.round(distance*Q),route);
+    const ahead=roadPositionQ(pack,mode,Math.round((distance+z)*Q),route);
+    const curveMetres=(ahead.xQ-before.xQ)/Q;
+    bend=curveMetres*5.2*(1-f);
+    width*=Math.max(.6,Math.min(1.4,halfWidthQ(pack,Math.round((distance+z)*Q))/(12*Q)));
+  }else{
+    const curved=curvature(distance+z,track)-curvature(distance,track);
+    const branching=routeBend(distance+z,route)-routeBend(distance,route);
+    bend=(curved+branching)*155*(1-f)-Math.sin(distance/460)*65*f;
+  }
+  const center=W/2+bend-lane*width*.69;
   return {x:center,y,width,f};
-}
-export function playerScreenX(s){
-  const lane=s.laneQ/Q,d=s.distanceQ/Q;
-  const width=460*(s.pack?foundryWidth(s.pack,d)/12:1);
-  return W/2+lane*width*.30;
 }
 function sky(ctx,track,distance){
   const gradient=ctx.createLinearGradient(0,0,0,horizon+15);
@@ -66,12 +62,11 @@ function sky(ctx,track,distance){
   ctx.fillStyle=track.ground;ctx.fillRect(0,horizon,W,H-horizon);
 }
 function road(ctx,s,track){
-  const d=s.distanceQ/Q,lane=s.laneQ/Q,route=s.route??[],
-    pack=s.pack;
+  const d=s.distanceQ/Q,lane=s.laneQ/Q,route=s.mode==='coast'?s.route:[];
   for(let i=0;i<steps;i++){
     const z0=VIEW_METERS*(1-i/steps),z1=VIEW_METERS*(1-(i+1)/steps);
-    const a=project(z0,d,lane,track.id,route,pack),
-      b=project(z1,d,lane,track.id,route,pack);
+    const a=project(z0,d,lane,track.id,route,s.foundry,s.mode),
+      b=project(z1,d,lane,track.id,route,s.foundry,s.mode);
     const section=Math.floor((d+z0)/36),alternate=section%2===0;
     ctx.fillStyle=alternate?track.grass:track.grass2;
     ctx.fillRect(0,a.y,W,b.y-a.y+1);
@@ -131,7 +126,7 @@ function roadside(ctx,s,track){
   // OPT working-set reduction: only 11 nearby fixtures, far-to-near painter order.
   for(let m=first+11*85;m>=first;m-=85){
     const z=m-d;if(z<8||z>VIEW_METERS)continue;
-    const a=project(z,d,s.laneQ/Q,track.id,s.route??[],s.pack);
+    const a=project(z,d,s.laneQ/Q,track.id,s.mode==='coast'?s.route:[],s.foundry,s.mode);
     const size=8+170*Math.pow(a.f,1.6);
     for(const side of [-1,1]){
       const x=a.x+side*(a.width*1.5+size*.15);
@@ -164,16 +159,13 @@ function rivalCar(ctx,x,y,size,color){
 function rivals(ctx,s,track){
   const d=s.distanceQ/Q;
   for(const rival of visibleRivals(s)){
-    const z=rival.distanceQ/Q-d,
-      p=project(z,d,s.laneQ/Q,track.id,s.route??[],s.pack);
+    const z=rival.distanceQ/Q-d,p=project(z,d,s.laneQ/Q,track.id,s.mode==='coast'?s.route:[],s.foundry,s.mode);
     const width=16+p.f*p.f*90;
-    rivalCar(ctx,p.x+rival.laneQ/Q*p.width*.77,p.y,width,rival.color);
+    rivalCar(ctx,p.x+rival.laneQ/Q*p.width*.65,p.y,width,rival.color);
   }
 }
 function player(ctx,s,color){
-  const x=playerScreenX(s),y=H-12,
-    scale=s.pack?foundryWidth(s.pack,s.distanceQ/Q)/12:1,
-    w=92*scale,h=89*scale;
+  const x=W/2,y=H-12,w=92,h=89;
   ctx.fillStyle='rgba(0,0,0,.44)';ctx.beginPath();ctx.ellipse(x,y+2,125,15,0,0,Math.PI*2);ctx.fill();
   const shake=s.collisionCooldown>60?(s.ticks%2?3:-3):0;
   ctx.save();ctx.translate(shake,0);
@@ -192,11 +184,11 @@ function player(ctx,s,color){
   ctx.restore();
 }
 function forkBanner(ctx,s,track){
-  if(s.mode!=='coast'||s.route.length>=FOUNDRY_FORKS)return;
+  if(s.mode!=='coast'||s.route.length>=3)return;
   const distance=s.distanceQ/Q;
-  const at=foundryForkAt(s.route.length),z=at-distance;
+  const at=(s.route.length+1)*(s.foundry?1200:TOUR_STAGE_METERS),z=at-distance;
   if(z<=10||z>VIEW_METERS)return;
-  const p=project(z,distance,s.laneQ/Q,track.id,s.route,s.pack);
+  const p=project(z,distance,s.laneQ/Q,track.id,s.route,s.foundry,s.mode);
   const scale=Math.max(.7,Math.min(3.1,1+p.f*2.5));
   const width=126*scale,height=26*scale;
   const x=p.x-width/2,y=p.y-100*scale;
@@ -223,9 +215,8 @@ function overlays(ctx,s,track){
     ctx.fillStyle='#d4f8ee';ctx.font='bold 15px monospace';
     ctx.textAlign='left';
     ctx.fillText(track.name.toUpperCase(),24,H-24);
-    const next=s.route.length<FOUNDRY_FORKS?
-      foundryForkAt(s.route.length)-s.distanceQ/Q:Infinity;
-    if(s.route.length<FOUNDRY_FORKS&&next<340){
+    const next=(s.route.length+1)*(s.foundry?1200:TOUR_STAGE_METERS)-s.distanceQ/Q;
+    if(s.route.length<3&&next<340){
       ctx.fillStyle='rgba(7,22,32,.83)';ctx.fillRect(W-302,86,280,70);
       ctx.strokeStyle='#9eead7';ctx.strokeRect(W-302,86,280,70);
       ctx.fillStyle='#f5edbd';ctx.font='bold 16px monospace';
@@ -238,14 +229,16 @@ function overlays(ctx,s,track){
 export function render(ctx,s){
   const setup=modeSettings(s.mode,s.track,s.car);
   ctx.clearRect(0,0,W,H);
-  let track=setup.track;
-  if(s.pack){
-    const base=foundryEnvironmentTrack(s.pack,TRACKS);
-    const {leg}=foundryLeg(s.distanceQ/Q);
-    track=s.mode==='coast'?tourPalette(s.route.slice(leg*3,leg*3+3),base.id):base;
-  }
+  const track=s.foundry?
+    TRACKS[sourceEnvironmentToGame(s.trackPack.environment)]:
+    s.mode==='coast'?tourPalette(s.route,s.track):setup.track;
   sky(ctx,track,s.distanceQ/Q);
   road(ctx,s,track);roadside(ctx,s,track);rivals(ctx,s,track);
   forkBanner(ctx,s,track);
   player(ctx,s,setup.car.color);overlays(ctx,s,track);
+  if(s.foundry){
+    ctx.fillStyle='rgba(7,25,34,.83)';ctx.fillRect(20,H-56,352,27);
+    ctx.fillStyle='#91f8da';ctx.font='bold 12px monospace';ctx.textAlign='left';
+    ctx.fillText('FOUNDRY / '+s.trackPack.name.toUpperCase(),30,H-38);
+  }
 }
