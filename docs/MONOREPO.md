@@ -52,3 +52,18 @@ explicit stored-pack ownership, authored road/circuit semantics, compatibility
 and verification. The editable circuit is gate-distance-parametric, not an
 unclaimed free-roaming 2D kinematic solver. Existing Q16.16 race modes, root
 career and pinned vendor files retain their independent evidence boundaries.
+
+## Integration resolution — Track Foundry and Endurance Studio
+
+The independently authored RACING-003 branches have been reconciled *without
+silently replacing either implementation*. The classic arcade and original
+Track Foundry from PR #5 are unchanged; PR #6's enhanced road-simulation
+modules are namespaced as `shared/racer/*-endurance.js`, and its runnable
+courses are `games/endurance-*/`. PR #6's advanced creator is now
+`games/track-foundry-studio/`, not a replacement for the saved-pack editor.
+
+Both use the same source-pinned upstream `track.v1` schema from
+`vendor/vanillajs/demos/racing-lab/track.js`, which remains indexed by the
+existing SHA-256 vendor provenance manifest. Independent Node and Chromium
+suites cover the two numerical paths, both editors and their offline entries.
+The static site inventory is regenerated and strictly pinned before merging.

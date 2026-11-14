@@ -1,0 +1,62 @@
+{
+  "format": "qsol.vanillajs.track.v1",
+  "version": 1,
+  "name": "Silver Ridge",
+  "environment": "forest",
+  "sections": [
+    {
+      "curve": -0.4,
+      "width": 10,
+      "fork": 11
+    },
+    {
+      "curve": 0.8,
+      "width": 11,
+      "fork": 13
+    },
+    {
+      "curve": -0.55,
+      "width": 9,
+      "fork": 8
+    },
+    {
+      "curve": 0.3,
+      "width": 10,
+      "fork": 12
+    }
+  ],
+  "gates": [
+    {
+      "x": 0,
+      "z": 55
+    },
+    {
+      "x": 36,
+      "z": 39
+    },
+    {
+      "x": 50,
+      "z": 0
+    },
+    {
+      "x": 36,
+      "z": -39
+    },
+    {
+      "x": 0,
+      "z": -55
+    },
+    {
+      "x": -36,
+      "z": -39
+    },
+    {
+      "x": -50,
+      "z": 0
+    },
+    {
+      "x": -36,
+      "z": 39
+    }
+  ]
+}
