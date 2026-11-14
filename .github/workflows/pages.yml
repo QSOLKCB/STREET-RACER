@@ -2,7 +2,7 @@ name: Test and deploy STREET RACER
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/racing-003-track-foundry]
   pull_request:
   workflow_dispatch:
 
