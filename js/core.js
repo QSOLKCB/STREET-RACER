@@ -1,4 +1,6 @@
 import { CARS, CAR_BY_ID, PARTS, SLOT_IDS, RIVALS, RIVAL_BY_ID, COURSES, COURSE_BY_ID, PAINTS } from './catalog.js';
+// Pinned VANILLAJS generator: the same seeded stream the arcade games use.
+import { seededRandom } from '../vendor/vanillajs/modules/math/index.js';
 
 export const STEP = 1 / 60;
 export const SAVE_LIMIT = 64 * 1024;
@@ -220,10 +222,13 @@ export function roadCurve(course, distance) {
   return course.type === 'drag' ? 0 : course.curveScale * (Math.sin(distance / 170) * 0.55 + Math.sin(distance / 370) * 0.45);
 }
 
-function seeded(seed) {
-  let state = seed >>> 0;
-  return () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
-}
+// Lane units: ±1 is the painted edge, ±0.92 the shoulder or strip wall. Two
+// cars touch when their centres are closer than CAR_WIDTH lane units.
+export const CAR_WIDTH = 0.28;
+export const FLOW_LANES = Object.freeze([-0.62, 0, 0.62]);
+export const ONCOMING_LANE = -0.55;
+const TRAFFIC_COLORS = ['#c9c2a8', '#7c8f9a', '#a9553f', '#5d6d5a', '#d2b36a', '#8f8aa8', '#e2ddd0', '#4c5a66'];
+const laneWidth = course => course.lanes === 3 ? 0.62 : 0.7;
 
 export function startRace(source, options = {}) {
   let career;
@@ -235,20 +240,38 @@ export function startRace(source, options = {}) {
   const course = COURSE_BY_ID[normalized.courseId];
   const car = clone(getActiveCar(career));
   const enemy = rivalCar(rival);
-  const makeDriver = (owned, x) => ({ car: owned, model: CAR_BY_ID[owned.modelId], stats: carStats(owned),
-    speed: 0, distance: 0, x, gear: 1, rpm: 900, condition: normalized.stake === 'practice' ? 100 : owned.condition,
-    fuel: normalized.stake === 'practice' ? 100 : owned.fuel, shiftCooldown: 0, redline: 0, offroad: false });
-  const random = seeded((career.seed ^ Math.imul(career.races + 1, 2654435761) ^ course.length) >>> 0);
+  const random = seededRandom((career.seed ^ Math.imul(career.races + 1, 2654435761) ^ course.length) >>> 0);
+  // Start lanes: drag strips and the night road use one lane each; the
+  // highway starts the rival in the right lane beside the centre lane.
+  const playerLane = course.type === 'drag' ? -0.35 : course.traffic === 'oncoming' ? 0.35 : course.traffic === 'flow' ? 0 : 0;
+  const opponentLane = course.type === 'drag' ? 0.35 : course.traffic === 'oncoming' ? -0.35 : course.traffic === 'flow' ? 0.62 : 0.35;
+  const makeDriver = (owned, lane) => ({ car: owned, model: CAR_BY_ID[owned.modelId], stats: carStats(owned),
+    speed: 0, distance: 0, x: lane, lane, gear: 1, rpm: 900, condition: normalized.stake === 'practice' ? 100 : owned.condition,
+    fuel: normalized.stake === 'practice' ? 100 : owned.fuel, shiftCooldown: 0, redline: 0, offroad: false,
+    drift: 0, pull: random() < 0.5 ? -1 : 1, scraping: false, contacts: 0 });
   const hazards = [];
-  if (course.type === 'road') for (let distance = 380; distance < course.length - 180; distance += 310 + Math.floor(random() * 230)) {
+  if (course.type === 'road' && !course.traffic) for (let distance = 380; distance < course.length - 180; distance += 310 + Math.floor(random() * 230)) {
     hazards.push({ distance, x: (random() * 1.5 - 0.75), type: random() > 0.5 ? 'barrel' : 'cone', hit: false });
   }
-  return { ok: true, message: allowed.message, race: { version: 1,
+  // Traffic is inert seeded data: every car for the whole run is placed up
+  // front, so a tick never draws from the generator.
+  const traffic = [];
+  if (course.traffic === 'oncoming') for (let distance = 360 + random() * 120; distance < course.length + 3200; distance += 170 + Math.floor(random() * 260)) {
+    const truck = random() > 0.78;
+    traffic.push({ id: traffic.length, distance, previous: distance, x: ONCOMING_LANE + (random() - 0.5) * 0.16, speed: -(truck ? 12 + random() * 4 : 14 + random() * 9),
+      style: truck ? 'truck' : 'car', color: TRAFFIC_COLORS[traffic.length % TRAFFIC_COLORS.length], cooldown: 0, hits: 0 });
+  } else if (course.traffic === 'flow') for (let distance = 240 + random() * 60; distance < course.length + 400; distance += 80 + Math.floor(random() * 150)) {
+    const truck = random() > 0.8;
+    traffic.push({ id: traffic.length, distance, previous: distance, x: FLOW_LANES[Math.floor(random() * 3)] + (random() - 0.5) * 0.06, speed: truck ? 17 + random() * 3 : 20 + random() * 7,
+      style: truck ? 'truck' : 'car', color: TRAFFIC_COLORS[traffic.length % TRAFFIC_COLORS.length], cooldown: 0, hits: 0 });
+  }
+  const gusts = Array.from({ length: 96 }, () => random() * 2 - 1);
+  return { ok: true, message: allowed.message, race: { version: 2,
     id: `race-${career.seed}-${career.revision}-${career.races}`, careerRevision: career.revision,
     seed: career.seed, status: 'countdown', countdown: 3, time: 0, ticks: 0, accumulator: 0,
-    course, rival, player: makeDriver(car, course.type === 'drag' ? -0.35 : 0), opponent: makeDriver(enemy, 0.35),
+    course, rival, player: makeDriver(car, playerLane), opponent: makeDriver(enemy, opponentLane),
     stake: normalized.stake, cashStake: allowed.wager, transmission: normalized.transmission,
-    curvature: 0, hazards, events: [], winner: null, reason: '', settled: false,
+    curvature: 0, hazards, traffic, gusts, contactCooldown: 0, events: [], winner: null, reason: '', settled: false,
     shiftLatch: false, downLatch: false, pendingShiftUp: false, pendingShiftDown: false,
     finishTime: null, opponentFinishTime: null,
     reward: 0, result: null } };
@@ -271,11 +294,19 @@ export function forfeitRace(race) {
   return race;
 }
 
+// Swept longitudinal overlap during one tick: endpoint proximity or a crossed
+// relative trajectory both count, so a fast closing car cannot pass through.
+export function sweptContact(aBefore, aAfter, bBefore, bAfter, radius) {
+  const before = bBefore - aBefore, after = bAfter - aAfter;
+  return Math.abs(before) <= radius || Math.abs(after) <= radius || (before > 0 && after < 0) || (before < 0 && after > 0);
+}
+
 function drive(race, driver, controls, isOpponent) {
   const step = STEP;
   const stats = driver.stats;
   const maxSpeed = stats.topSpeed / 3.6;
-  const curve = roadCurve(race.course, driver.distance);
+  const course = race.course;
+  const curve = roadCurve(course, driver.distance);
   const oldDistance = driver.distance;
   let throttle = controls.throttle;
   driver.shiftCooldown = Math.max(0, driver.shiftCooldown - step);
@@ -304,15 +335,32 @@ function drive(race, driver, controls, isOpponent) {
   const wearFactor = 0.68 + driver.condition * 0.0032;
   const launchGrip = driver.speed < 8 ? Math.min(1, stats.grip * 1.03) : 1;
   const traction = stats.grip * 9;
-  const acceleration = throttle * Math.min(traction, stats.acceleration * torque / (1 + driver.speed / 38)) * wearFactor * launchGrip * (isOpponent ? race.rival.skill : 1);
+  const demand = throttle * stats.acceleration * torque / (1 + driver.speed / 38);
+  const acceleration = Math.min(traction, demand) * wearFactor * launchGrip * (isOpponent ? race.rival.skill : 1);
   const drag = 0.08 + 0.00085 * driver.speed * driver.speed;
   const braking = controls.brake * (7.8 + stats.grip * 2.5);
   driver.speed = clamp(driver.speed + (acceleration - drag - braking) * step, 0, effectiveGearMax * 1.055);
   driver.speed = Math.min(driver.speed, maxSpeed * (isOpponent ? 0.86 + race.rival.skill * 0.10 : 1));
-  if (race.course.type === 'road') {
-    const speedRatio = driver.speed / Math.max(1, maxSpeed);
-    // Steering authority grows with speed so a lane change at full speed is not sluggish.
-    const steering = controls.steer * (0.55 + Math.min(1.1, driver.speed / 16)) * Math.min(1, driver.speed / 4);
+  const speedRatio = driver.speed / Math.max(1, maxSpeed);
+  // Steering authority grows with speed so a lane change at full speed is not sluggish.
+  const steering = controls.steer * (0.55 + Math.min(1.1, driver.speed / 16)) * Math.min(1, driver.speed / 4);
+  if (course.type === 'drag') {
+    // Street-strip handling: wheelspin on the launch pulls the car to one
+    // side and crosswind wanders it at speed. Both are seeded and bounded, so
+    // a replayed race drifts the same way; the driver holds the lane.
+    const wheelspin = clamp((demand - traction * 0.8) / (traction * 0.4), 0, 1);
+    const gust = race.gusts[Math.floor(race.time / 3) % race.gusts.length];
+    const target = gust * 0.2 * speedRatio * speedRatio * speedRatio + driver.pull * 0.1 * wheelspin * throttle;
+    driver.drift += (target - driver.drift) * step * 1.8;
+    driver.x = clamp(driver.x + (steering + driver.drift) * step, -1.02, 1.02);
+    driver.offroad = Math.abs(driver.x) > 0.92;
+    if (driver.offroad) {
+      driver.speed *= 1 - step * 1.1;
+      driver.condition = Math.max(0, driver.condition - step * (0.9 + driver.speed / 40));
+      if (!driver.scraping && !isOpponent) event(race, 'Wall scrape! Steer away from the wall and ease off.');
+    }
+    driver.scraping = driver.offroad;
+  } else {
     const push = curve * speedRatio * speedRatio * (0.82 / stats.grip);
     driver.x = clamp(driver.x + (steering - push) * step, -1.6, 1.6);
     driver.offroad = Math.abs(driver.x) > 0.92;
@@ -323,8 +371,8 @@ function drive(race, driver, controls, isOpponent) {
     // At a tight bend, excess speed scrubs away even with a clean steering line.
     const safeSpeed = maxSpeed * (1 - Math.abs(curve) * 0.36 / stats.grip);
     if (driver.speed > safeSpeed) driver.speed -= (driver.speed - safeSpeed) * step * 1.5;
-  } else { driver.x = isOpponent ? 0.35 : -0.35; }
-  driver.distance = Math.min(race.course.length + 10, driver.distance + driver.speed * step);
+  }
+  driver.distance = Math.min(course.length + 10, driver.distance + driver.speed * step);
   if (!isOpponent) for (const hazard of race.hazards) {
     if (!hazard.hit && oldDistance <= hazard.distance && driver.distance >= hazard.distance && Math.abs(driver.x - hazard.x) < 0.18) {
       hazard.hit = true; driver.speed *= 0.72; driver.condition = Math.max(0, driver.condition - 6);
@@ -334,6 +382,112 @@ function drive(race, driver, controls, isOpponent) {
   driver.fuel = Math.max(0, driver.fuel - step * (0.015 + throttle * 0.035 + driver.speed / 450));
   driver.condition = Math.max(0, driver.condition - step * throttle * 0.013);
   return oldDistance;
+}
+
+// Nearest obstacle (traffic car or the other driver) ahead of `distance` in
+// the lane around `x`, within `range` metres. Infinity when the lane is clear.
+export function gapAhead(race, driver, x, range) {
+  let best = Infinity;
+  const other = driver === race.player ? race.opponent : race.player;
+  const consider = (ox, od, length) => {
+    const d = od - driver.distance;
+    if (d > -length && d < range && Math.abs(ox - x) < CAR_WIDTH + 0.06) best = Math.min(best, d);
+  };
+  for (const car of race.traffic) consider(car.x, car.distance, car.style === 'truck' ? 9 : 5);
+  consider(other.x, other.distance, 5);
+  return best;
+}
+
+function trafficContacts(race, driver, previous, isOpponent) {
+  for (const car of race.traffic) {
+    if (car.cooldown > 0) continue;
+    const length = car.style === 'truck' ? 6.5 : 4.6;
+    if (Math.abs(car.x - driver.x) >= CAR_WIDTH + 0.02 || !sweptContact(previous, driver.distance, car.previous, car.distance, length)) continue;
+    const closing = driver.speed - car.speed;
+    let damage;
+    if (car.speed < 0) {
+      // Head-on: both vehicles stop almost dead; the traffic car limps to the verge.
+      damage = 14 + Math.min(16, closing / 4);
+      driver.speed *= 0.3; car.speed = -2; car.x = -0.8;
+      if (!isOpponent) event(race, 'Head-on with oncoming traffic! Hold the right lane until the road is clear.');
+    } else if (previous <= car.previous) {
+      // The racer ran into the back of traffic: drop in behind it at its pace.
+      damage = 6 + Math.min(8, Math.max(0, closing) / 4);
+      driver.speed = Math.min(driver.speed, car.speed * 0.8);
+      driver.distance = Math.min(driver.distance, car.distance - length);
+      car.speed = Math.min(car.speed + 2, 30);
+      if (!isOpponent) event(race, `${car.style === 'truck' ? 'Truck' : 'Traffic'} clipped. Change lanes before the gap closes.`);
+    } else {
+      // Traffic ran into the back of the racer: the racer is shoved forward,
+      // never backward through the car that hit it, and the traffic slows.
+      damage = 4 + Math.min(6, Math.max(0, -closing) / 4);
+      driver.speed = Math.max(driver.speed, Math.min(car.speed * 0.5, driver.speed + 4));
+      car.speed = Math.min(car.speed, driver.speed * 0.8);
+      car.distance = Math.min(car.distance, driver.distance - length);
+      if (!isOpponent) event(race, `Rear-ended by ${car.style === 'truck' ? 'a truck' : 'traffic'}. Keep up with the flow or clear the lane.`);
+    }
+    driver.condition = Math.max(0, driver.condition - damage);
+    driver.contacts++; car.cooldown = 60; car.hits++;
+  }
+}
+function rivalContact(race, previousPlayer, previousOpponent) {
+  if (race.contactCooldown > 0) { race.contactCooldown--; return; }
+  const p = race.player, o = race.opponent;
+  if (Math.abs(p.x - o.x) >= CAR_WIDTH || !sweptContact(previousPlayer, p.distance, previousOpponent, o.distance, 4.5)) return;
+  const behind = p.distance < o.distance ? p : o, ahead = behind === p ? o : p;
+  behind.speed *= 0.72; ahead.speed *= 0.9;
+  p.condition = Math.max(0, p.condition - 2.5); o.condition = Math.max(0, o.condition - 2.5);
+  const side = Math.sign(p.x - o.x) || (behind === p ? -1 : 1);
+  const limit = race.course.type === 'drag' ? 1.02 : 1.6;
+  p.x = clamp(p.x + side * 0.08, -limit, limit); o.x = clamp(o.x - side * 0.08, -limit, limit);
+  p.contacts++; o.contacts++; race.contactCooldown = 45;
+  event(race, `Traded paint with ${race.rival.name}. Give them room.`);
+}
+
+// Deterministic rival: holds a lane, takes the racing line through bends and
+// avoids traffic by lane choice or braking. It never steers into the player
+// deliberately; contact only happens when the lanes genuinely overlap.
+function rivalControls(race) {
+  const o = race.opponent, p = race.player, course = race.course;
+  const curve = roadCurve(course, o.distance);
+  const speedRatio = o.speed / (o.stats.topSpeed / 3.6);
+  let target = course.type === 'drag' || !course.traffic ? (course.type === 'drag' ? o.lane : 0.3) : o.lane;
+  let throttle = 1, brake = 0;
+  if (course.traffic === 'oncoming') {
+    const oncomingGap = gapAhead(race, o, ONCOMING_LANE, 140 + o.speed * 4);
+    const playerAhead = p.distance - o.distance;
+    const playerInRight = Math.abs(p.x - 0.35) < CAR_WIDTH + 0.1;
+    const alongside = playerInRight && playerAhead > -8 && playerAhead < 10;
+    const playerBlocks = playerInRight && playerAhead >= 10 && playerAhead < 45 && p.speed < o.speed + 2;
+    if (o.lane < 0) {
+      // Started in the oncoming lane: merge right once the player is not alongside.
+      if (!alongside) o.lane = 0.35;
+      else if (oncomingGap < 90) { throttle = 0; brake = 0.6; }
+    }
+    if (o.lane >= 0) {
+      target = 0.35;
+      if (playerBlocks) {
+        if (oncomingGap === Infinity) target = -0.4;
+        else if (playerAhead < 14) { throttle = 0; brake = 0.45; }
+      }
+      if (o.x < -0.05 && oncomingGap < 90) { target = 0.35; if (alongside) { throttle = 0; brake = 0.7; } }
+    } else target = o.lane;
+  } else if (course.traffic === 'flow') {
+    const current = gapAhead(race, o, o.lane, 75);
+    if (current < 75) {
+      let bestLane = o.lane, bestGap = current;
+      for (const lane of FLOW_LANES) {
+        if (Math.abs(lane - o.lane) > 0.7 || lane === o.lane) continue;
+        const gap = gapAhead(race, o, lane, 95);
+        if (gap > bestGap + 20) { bestGap = gap; bestLane = lane; }
+      }
+      if (bestLane !== o.lane) o.lane = bestLane;
+      else if (current < 28) { throttle = 0; brake = 0.5; }
+    }
+    target = o.lane;
+  }
+  const steer = clamp(curve * speedRatio * speedRatio * 0.82 / o.stats.grip / 1.5 + (target - o.x) * 1.2, -1, 1);
+  return { throttle, brake, steer, shiftUp: false, shiftDown: false };
 }
 
 function tick(race, input) {
@@ -347,16 +501,26 @@ function tick(race, input) {
   }
   race.time += STEP;
   race.curvature = roadCurve(race.course, race.player.distance);
-  const aiCurve = roadCurve(race.course, race.opponent.distance);
-  const aiSpeedRatio = race.opponent.speed / (race.opponent.stats.topSpeed / 3.6);
-  const aiSteer = clamp(aiCurve * aiSpeedRatio * aiSpeedRatio * 0.82 / race.opponent.stats.grip / 1.5 + (0.3 - race.opponent.x) * 1.2, -1, 1);
+  for (const car of race.traffic) {
+    car.previous = car.distance; car.distance += car.speed * STEP;
+    if (car.cooldown > 0) car.cooldown--;
+  }
+  const aiInput = rivalControls(race);
   const previousPlayer = drive(race, race.player, input, false);
-  const previousOpponent = drive(race, race.opponent, { throttle: 1, brake: 0, steer: aiSteer, shiftUp: false, shiftDown: false }, true);
+  const previousOpponent = drive(race, race.opponent, aiInput, true);
+  // The finish is decided from the driven endpoints. A contact in the same
+  // tick can still cost speed or condition, but it never rewinds a car that
+  // has already crossed the line or changes the interpolated crossing time.
   const length = race.course.length;
   const playerFinished = race.player.distance >= length;
   const opponentFinished = race.opponent.distance >= length;
   if (playerFinished) race.finishTime = race.time - STEP + STEP * (length - previousPlayer) / Math.max(1e-12, race.player.distance - previousPlayer);
   if (opponentFinished) race.opponentFinishTime = race.time - STEP + STEP * (length - previousOpponent) / Math.max(1e-12, race.opponent.distance - previousOpponent);
+  if (!playerFinished && !opponentFinished) rivalContact(race, previousPlayer, previousOpponent);
+  if (race.traffic.length) {
+    if (!playerFinished) trafficContacts(race, race.player, previousPlayer, false);
+    if (!opponentFinished) trafficContacts(race, race.opponent, previousOpponent, true);
+  }
   if (playerFinished || opponentFinished) {
     const won = playerFinished && (!opponentFinished || race.finishTime <= race.opponentFinishTime);
     finish(race, won ? 'player' : 'opponent', won ? 'First across the line.' : `${race.rival.name} crossed the line first.`);

@@ -20,7 +20,7 @@ const trackSelect=$('track'),carSelect=$('vehicle'),overlay=$('overlay'),heading
   ammo=$('ammo'),distance=$('distance'),event=$('event'),timer=$('timer'),
   sector=$('sector'),route=$('route'),steerDisplay=$('steer'),
   packDisplay=$('track-name-display'),clearPack=$('clear-pack');
-const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:0});
+const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:.0005});
 const audio=createRaceAudio(),held=new Set();
 let customPack=null,packError='';
 if(mode==='coast'||mode==='sprint'){

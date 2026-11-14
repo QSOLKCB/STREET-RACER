@@ -19,7 +19,7 @@ const trackSelect=$('track'),carSelect=$('vehicle'),overlay=$('overlay'),heading
   status=$('status'),speed=$('speed'),lap=$('lap'),rank=$('rank'),health=$('health'),nitro=$('nitro'),
   ammo=$('ammo'),distance=$('distance'),event=$('event'),timer=$('timer'),
   sector=$('sector'),route=$('route');
-const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:0});
+const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:.0005});
 const audio=createRaceAudio(),held=new Set();
 // Accessing the localStorage property itself may throw SecurityError in a
 // sandboxed/private origin. No game (even a non-Foundry mode) depends on it.
