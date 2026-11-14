@@ -27,7 +27,6 @@ jobs:
       - name: Verify source pins and complete offline inventory
         run: |
           node scripts/verify-vendor.mjs
-          node scripts/site.mjs refresh
           node scripts/site.mjs check
       - name: Stage only the public game
         run: node scripts/site.mjs build _site
