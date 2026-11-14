@@ -101,3 +101,16 @@ for its executed checks; this document does not claim physical-GPU acceptance.
 - COASTAL SPRINT's Canvas2D fallback now consumes the same recorded fork
   history used in WebGL; the alternative physical centrelines result in
   different visible road geometry, including after WebGL context loss.
+
+## Streaming-road seam hardening — Codex P2
+
+Native WebGL sprint geometry is regenerated on 200 m boundaries, but its
+bounded 1.64 km authored window now includes **240 m behind the anchor**
+and **1,400 m ahead**, clipped to the actual course limits. The chase
+camera sits 16 m behind the car, so the rear margin prevents asphalt and
+ground from disappearing under the car on a boundary crossing.
+
+Regression checks run at both sides of 200 m seams throughout the 19.2 km
+road, inspect **generated asphalt slab vertices** (not only range metadata),
+verify adjacent windows overlap, enforce the bounded vertex budget, and
+preserve the legacy 3.6 km non-authored geometry path.

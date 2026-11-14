@@ -48,13 +48,30 @@ function roadside(out,cx,z,yaw,side,stage,index){
   }
 }
 
+// Stream anchors advance in 200 m increments. A full 240 m of asphalt
+// behind each anchor keeps the road visible under the chase camera (16 m
+// behind the driver), including immediately after a window boundary.
+// Bound total generated road to 240 m rear + 1,400 m forward, never
+// streaming the entire 19.2 km authored course.
+export const SPRINT_STREAM_STEP_METRES=200;
+export const SPRINT_STREAM_REAR_METRES=240;
+export const SPRINT_STREAM_FORWARD_METRES=1400;
+export function sprintStreamBounds(windowStart,pack=null){
+  if(!Number.isFinite(windowStart)||windowStart<0)
+    throw new RangeError('invalid sprint streaming window');
+  if(!pack)return {first:0,limit:SPRINT_METERS};
+  const anchor=Math.min(FOUNDRY_TOTAL,
+    Math.floor(windowStart/SPRINT_STREAM_STEP_METRES)*SPRINT_STREAM_STEP_METRES);
+  return {
+    first:Math.max(0,anchor-SPRINT_STREAM_REAR_METRES),
+    limit:Math.min(FOUNDRY_TOTAL,anchor+SPRINT_STREAM_FORWARD_METRES)
+  };
+}
 export function sprintSceneGeometry(pack=null,route=[],windowStart=0){
   const out=[];
-  // Existing un-authored scene remains available for compatibility tests.
-  // RACING-003 authored scenes are a bounded 1.4 km streaming window; avoid
-  // allocating the entire 19.2 km course as one static GPU buffer.
-  const first=pack?Math.floor(Math.max(0,windowStart)/20)*20:0;
-  const limit=pack?Math.min(FOUNDRY_TOTAL,first+1400):SPRINT_METERS;
+  // The legacy, un-authored 3.6 km geometry remains unchanged.
+  // Authored geometry retains ground behind the camera at every 200 m seam.
+  const {first,limit}=sprintStreamBounds(windowStart,pack);
   for(let m=first;m<limit;m+=20){
     const at=m+10,x=pack?foundryCenter(pack,at,route):sprintCenter(at),
       z=-at,yaw=pack?foundryHeading(pack,at,route):sprintHeading(at);
@@ -152,10 +169,12 @@ export function createSprintRenderer(canvas){
       if(disposed)throw new Error('3D scene disposed');
       const d=s.distanceQ/Q,route=s.route.join(',');
       // OPT invariant reuse: geometry is remeshed only every 200 m or after
-      // an authored fork decision. Render update is independent of input ticks.
-      const windowIndex=Math.floor(Math.max(0,d)/200);
+      // an authored fork decision. Every rebuilt mesh spans behind the
+      // chase camera; otherwise the road under the player disappears at seams.
+      const windowIndex=Math.floor(Math.max(0,d)/SPRINT_STREAM_STEP_METRES);
       if(lastWindow!==windowIndex||lastRoute!==route||lastPack!==s.pack){
-        renderer.update(road,sprintSceneGeometry(s.pack,s.route,windowIndex*200));
+        const anchor=windowIndex*SPRINT_STREAM_STEP_METRES;
+        renderer.update(road,sprintSceneGeometry(s.pack,s.route,anchor));
         lastWindow=windowIndex;lastRoute=route;lastPack=s.pack;
       }
       const heading=s.pack?foundryHeading(s.pack,d,s.route):sprintHeading(d),

@@ -9,7 +9,9 @@ import {TOUR_STAGE_METERS,TOUR_STAGES,sprintCenter,sprintHeading,tourPalette,rou
   sweptLongitudinalContact,SPRINT_ROAD_HALF_WIDTH_METRES,
   SPRINT_TYRE_HALF_WIDTH_METRES,SPRINT_LANE_SCALE_METRES,
   SPRINT_FINISH_LANE,SPRINT_OFFROAD_LANE,sprintLateralMetres} from '../shared/racer/course.js';
-import {sprintSceneGeometry,sprintTrafficGeometry} from '../shared/racer/webgl.js';
+import {sprintSceneGeometry,sprintTrafficGeometry,sprintStreamBounds,
+  SPRINT_STREAM_STEP_METRES,SPRINT_STREAM_REAR_METRES,
+  SPRINT_STREAM_FORWARD_METRES} from '../shared/racer/webgl.js';
 import {project,playerScreenX,render} from '../shared/racer/renderer.js';
 import {starterTrack,validateTrack,parseTrackJSON,serializeTrack,foundryCenter,
   foundryWidth,foundryHeading,foundryForkAt,foundryLeg,
@@ -449,4 +451,43 @@ test('RACING-003 sprint Canvas fallback paints the selected physical fork centre
     'Canvas fallback must visually distinguish physically different sprint forks');
   assert.notEqual(project(250,1250,0,'coast',first.route,first.pack).x,
     project(250,1250,0,'coast',second.route,second.pack).x);
+});
+
+test('RACING-003 WebGL stream retains actual asphalt behind the chase camera at every 200 m seam',()=>{
+  const pack=starterTrack(),route=[];
+  const cameraBack=16,visibleRearMargin=80;
+  assert.equal(SPRINT_STREAM_STEP_METRES,200);
+  assert.ok(SPRINT_STREAM_REAR_METRES>cameraBack+visibleRearMargin);
+  const inspect=(distance)=>{
+    const anchor=Math.floor(distance/SPRINT_STREAM_STEP_METRES)*SPRINT_STREAM_STEP_METRES;
+    const {first,limit}=sprintStreamBounds(anchor,pack);
+    assert.ok(first>=0&&limit<=FOUNDRY_TOTAL&&limit>first);
+    assert.ok(limit-first<=SPRINT_STREAM_REAR_METRES+SPRINT_STREAM_FORWARD_METRES,
+      'bounded road generation must not grow with elapsed race distance');
+    if(distance>=SPRINT_STREAM_STEP_METRES){
+      assert.ok(first<=distance-cameraBack-visibleRearMargin,
+        'asphalt must begin well behind the 16 m chase camera at '+distance+' m');
+    }
+    const mesh=sprintSceneGeometry(pack,route,anchor);
+    assert.ok(mesh.length>0&&mesh.every(Number.isFinite));
+    // First 36 vertices form the ground slab; the next 36 form the actual
+    // asphalt slab. Its near (rearward) edge must be behind the camera.
+    const asphalt=mesh.slice(36*6,72*6),zPositions=[];
+    for(let i=2;i<asphalt.length;i+=6)zPositions.push(asphalt[i]);
+    const nearestToCamera=Math.max(...zPositions);
+    if(distance>=SPRINT_STREAM_STEP_METRES)
+      assert.ok(nearestToCamera>-(distance-cameraBack-visibleRearMargin),
+        'measured asphalt vertices must cover the lower viewport at '+distance+' m');
+    return {first,limit};
+  };
+  for(const seam of [200,400,600,1200,4800,9600,19000]){
+    const previous=inspect(seam-.01),current=inspect(seam);
+    assert.ok(previous.first<current.limit&&current.first<previous.limit,
+      'window rebuild must overlap existing asphalt, not leave a streaming gap');
+  }
+  inspect(FOUNDRY_TOTAL);
+  assert.deepEqual(sprintStreamBounds(200,null),{first:0,limit:SPRINT_METERS},
+    'legacy un-authored 3.6 km geometry must be preserved');
+  assert.throws(()=>sprintStreamBounds(Infinity,pack),RangeError);
+  assert.throws(()=>sprintStreamBounds(-1,pack),RangeError);
 });
