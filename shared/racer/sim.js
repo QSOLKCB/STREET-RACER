@@ -2,6 +2,8 @@
 // Integer Q16.16 race core. Fixed 60 Hz steps; no DOM, wall clock, or randomness in tick().
 import {seededRandom} from '../../vendor/vanillajs/modules/math/index.js';
 import {modeSettings} from './config.js';
+import {compileTrack,roadPositionQ,lateralPositionQ,TRACK_TOTAL_LENGTH,SECTION_LENGTH,
+  FOUNDRY_MODES} from './foundry.js';
 import {TOUR_STAGE_METERS,TOUR_STAGES,sweptLongitudinalContact,
   SPRINT_OFFROAD_LANE,SPRINT_FINISH_LANE} from './course.js';
 export const Q=65536, HZ=60;
@@ -9,22 +11,36 @@ export const q=n=>Math.round(n*Q);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const isInt=n=>Number.isSafeInteger(n);
 function boundedSeed(seed){if(!Number.isInteger(seed)||seed<0||seed>0xffffffff)throw new RangeError('seed must be uint32');return seed}
-export function createRace({mode='supercar',track,car,seed=2026}={}){
+export function createRace({mode='supercar',track,car,seed=2026,trackPack=null}={}){
+  // A Track Foundry pack is inert, admitted once and compiled to integer Q16.
+  if(trackPack!==null&&!FOUNDRY_MODES.includes(mode))
+    throw new RangeError('track packs are supported by coast, sprint and supercar');
+  const foundry=trackPack===null?null:compileTrack(trackPack);
   const setup=modeSettings(mode,track,car),random=seededRandom(boundedSeed(seed));
   const m=setup.mode, rivals=Array.from({length:m.rivals},(_,i)=>({
     id:i+1,distanceQ:q(110+i*110),laneQ:q((random()-.5)*1.45),
     speedQ:q(47+random()*27),color:['#f4a659','#75dbdc','#d583cf','#eee09a','#82cb76','#fb7778','#dbd8df'][i],
     integrity:2,wrecked:false
   }));
+  const courseQ=foundry?(m.id==='supercar'?foundry.circuitLengthQ:TRACK_TOTAL_LENGTH*Q):
+    m.courseMeters*Q;
+  // Circuit mode starts at its first gate; touring modes start at the
+  // authored road origin, independent of arbitrary circuit-only gate edits.
+  const world=foundry?roadPositionQ(foundry,m.id,0,[]):{xQ:0,zQ:0};
   return {mode:m.id,track:setup.track.id,car:setup.car.id,seed,status:'running',ticks:0,
     distanceQ:0,speedQ:0,laneQ:0,laneVQ:0,health:100,boost:600,
     nitro:0,ammo:m.combat?12:0,shots:0,knockouts:0,collisionCooldown:0,shotCooldown:0,
     checkpoints:0,timeLeft:m.kind==='checkpoint'?90*HZ:null,lap:1,position:m.rivals+1,
-    score:0,rivals,lastEvent:'',events:[],route:[]};
+    score:0,rivals,lastEvent:'',events:[],route:[],trackPack:foundry?.spec??null,
+    foundry,courseQ,worldXQ:world.xQ,worldZQ:world.zQ,roadWidthQ:foundry?
+      foundry.sections[0].widthQ:null,circuitGates:0};
 }
 export const distanceMeters=s=>s.distanceQ/Q;
 export const speedKph=s=>Math.round(s.speedQ/Q*3.6);
-export const finishMeters=s=>{const m=modeSettings(s.mode).mode;return m.courseMeters*m.laps};
+export const finishMeters=s=>{
+  const m=modeSettings(s.mode).mode;
+  return (s.courseQ??m.courseMeters*Q)*m.laps/Q;
+};
 export function curvature(meters,track='alpine'){
   const t=modeSettings('supercar',track).track;
   return t.curve*(Math.sin(meters/230)*.52+Math.sin(meters/580+1.7)*.3+Math.sin(meters/96)*.12);
@@ -99,7 +115,7 @@ export function tickRace(s,input={}){
   }
   if(mode.combat&&s.ticks%540===0)s.ammo=Math.min(12,s.ammo+2);
   if(mode.kind==='checkpoint'){
-    const segment=q(TOUR_STAGE_METERS);
+    const segment=s.foundry?SECTION_LENGTH*Q:q(TOUR_STAGE_METERS);
     const crossed=Math.min(TOUR_STAGES-1,Math.floor(s.distanceQ/segment));
     while(s.route.length<crossed){
       const choice=s.laneQ<0?'left':'right';
@@ -116,27 +132,49 @@ export function tickRace(s,input={}){
     }
     s.timeLeft--;
   }else if(mode.kind==='sprint'){
-    const crossed=Math.min(3,Math.floor(s.distanceQ/q(900)));
+    const crossed=Math.min(3,Math.floor(s.distanceQ/
+      (s.foundry?SECTION_LENGTH*Q:q(900))));
     if(crossed>s.checkpoints){
       const earned=crossed-s.checkpoints;s.checkpoints=crossed;
       s.score+=earned*300;emit('SCENIC GATE '+crossed+' / 4');
     }
   }
-  s.lap=Math.min(mode.laps,1+Math.floor(s.distanceQ/q(mode.courseMeters)));
+  const lapQ=s.courseQ??q(mode.courseMeters);
+  if(s.foundry&&mode.kind==='circuit'){
+    // Segment thresholds are the actual source-authored gate distances.
+    const oldLapDistance=((previousQ%lapQ)+lapQ)%lapQ;
+    const nowLapDistance=((s.distanceQ%lapQ)+lapQ)%lapQ;
+    const oldLap=Math.floor(previousQ/lapQ),nextLap=Math.floor(s.distanceQ/lapQ);
+    for(let lap=oldLap;lap<=Math.min(nextLap,mode.laps-1);lap++){
+      const lower=lap===oldLap?oldLapDistance:0;
+      const upper=lap===nextLap?nowLapDistance:lapQ;
+      for(let i=1;i<8;i++)if(lower<s.foundry.lengthsQ[i]&&upper>=s.foundry.lengthsQ[i])
+        s.circuitGates++;
+    }
+  }
+  s.lap=Math.min(mode.laps,1+Math.floor(s.distanceQ/lapQ));
   s.position=1+s.rivals.filter(r=>!r.wrecked&&r.distanceQ>s.distanceQ).length;
   if(s.health<=0){s.status='lost';emit('CAR DESTROYED');}
-  else if(s.distanceQ>=q(mode.courseMeters*mode.laps)){
+  else if(s.distanceQ>=lapQ*mode.laps){
     if(mode.kind==='sprint'&&Math.abs(s.laneQ)>q(SPRINT_FINISH_LANE)){
       // No off-road finish. Preserve an approach to the line so the player
       // can re-enter the road and make a new valid forward crossing.
-      s.distanceQ=q(mode.courseMeters-10);
+      s.distanceQ=lapQ-10*Q;
       s.speedQ=Math.trunc(s.speedQ*65/100);
       emit('FINISH GATE MISSED · RETURN TO ROAD');
     }else{
       s.status='won';s.score+=Math.max(0,10000-Math.trunc(s.ticks/2))+s.knockouts*300;emit('FINISH');
     }
   }else if(s.timeLeft!==null&&s.timeLeft<=0){s.status='lost';emit('TIME EXPIRED');}
-  if(![s.distanceQ,s.speedQ,s.laneQ,s.laneVQ,...s.rivals.flatMap(r=>[r.distanceQ,r.speedQ,r.laneQ])].every(isInt)){
+  if(s.foundry){
+    const road=roadPositionQ(s.foundry,s.mode,s.distanceQ,s.route);
+    s.roadWidthQ=s.foundry.sections[Math.min(3,
+      Math.floor(s.distanceQ/(SECTION_LENGTH*Q)))].widthQ;
+    s.worldXQ=road.xQ+lateralPositionQ(s.foundry,s.distanceQ,s.laneQ);
+    s.worldZQ=road.zQ;
+  }
+  if(![s.distanceQ,s.speedQ,s.laneQ,s.laneVQ,s.worldXQ,s.worldZQ,
+    ...s.rivals.flatMap(r=>[r.distanceQ,r.speedQ,r.laneQ])].every(isInt)){
     throw new RangeError('Q16 integer domain exceeded');
   }
   return s;

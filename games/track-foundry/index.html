@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RACING-003 | Track Foundry — STREET-RACER</title><meta name="theme-color" content="#0c1525">
+<link rel="stylesheet" href="../../shared/racer/styles.css">
+<link rel="stylesheet" href="../../shared/racer/foundry-editor.css"></head>
+<body><div class="shell"><header class="topbar"><a class="logo" href="../../arcade-hub.html">QSOL-IMC <span>///</span> TRACK FOUNDRY</a>
+<nav class="links" aria-label="Navigation"><a href="../../arcade-hub.html">RACING ARCADE</a><a href="../../">STREET RACER</a></nav></header>
+<main>
+<div class="foundry-head"><div class="eyebrow">RACING-003 / SOURCE-PINNED VANILLAJS TRACKS</div>
+<h1>BUILD THE <em>ROAD.</em></h1><p>Four authored road sections, eight circuit checkpoints, real left/right branches and a race you can drive. Native HTML + Canvas, deterministic Q16.16 gameplay, entirely offline.</p></div>
+<section class="foundry-panel" aria-label="Track metadata">
+<label>TRACK NAME<input id="track-name" type="text" maxlength="48" value="The Long Way Home"></label>
+<label>ENVIRONMENT<select id="environment"><option value="coast">Sapphire Coast</option><option value="canyon">Cinder Canyon</option><option value="forest">Forest Run</option><option value="night">Night Drive</option></select></label>
+<label>DRIVE IT IN<select id="target-mode"><option value="coast">COAST RUN / branching tour</option><option value="sprint">COASTAL SPRINT 3D / 4.8 km</option><option value="supercar">VELOCITY II / eight-gate circuit</option></select></label>
+</section>
+<div class="foundry-grid">
+<section class="foundry-panel" aria-labelledby="road-title"><h2 id="road-title">ROAD SECTIONS</h2>
+<p>Four 1,200 m sections. Curve bends the road, half-width sets the paved corridor, and fork separation changes real road coordinates after each decision.</p>
+<div id="section-editor"></div>
+<h2>ORDERED CIRCUIT GATES</h2><p>Drag gate markers in Circuit preview or edit their X/Z coordinates. Self-crossing and overlapping layouts are rejected.</p><div id="gate-editor" hidden></div>
+</section>
+<section class="foundry-panel" aria-labelledby="preview-title"><h2 id="preview-title">COURSE PREVIEW</h2>
+<canvas id="course-preview" width="760" height="360" aria-label="Editable road and circuit schematic" tabindex="0"></canvas>
+<p>Scenic Tour shows all eight possible three-fork histories; the 3D sprint follows one authored centreline. Circuit shows the actual eight-gate polygon.</p>
+<div id="foundry-status" aria-live="polite" role="status">Track Foundry ready</div>
+</section></div>
+<section class="foundry-panel foundry-controls" aria-label="Track actions">
+<button id="track-new" type="button">NEW TRACK</button><button id="export-track" type="button">EXPORT JSON ↓</button>
+<label class="import">IMPORT JSON <input id="import-track" type="file" accept=".json,application/json"></label>
+<button id="apply-track" type="button" class="btn-primary">VALIDATE &amp; RACE ↗</button>
+<button id="clear-track" type="button">CLEAR SAVED TRACK</button>
+</section>
+<p class="foundry-note">Track packs are data only, limited to 16 KiB, schema-checked before use and stored locally only when you choose <b>Validate &amp; Race</b>. No account, cloud service or third-party racing assets. The exact VANILLAJS schema is pinned in vendor provenance; the game's motion stays Q16.16, while Canvas and WebGL are presentation layers.</p>
+</main><footer class="footer"><span>QSOL-IMC · RACING-003 · APACHE-2.0</span><span>YOUR ROAD. YOUR RACE. YOUR RULES.</span></footer></div>
+<script type="module" src="../../shared/racer/foundry-editor.js"></script></body></html>

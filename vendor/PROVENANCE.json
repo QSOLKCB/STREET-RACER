@@ -4,6 +4,13 @@
     {
       "repository": "QSOLKCB/ARCADE",
       "commit": "f29b780734a50171d55ae2f770930db8a487b31c",
+      "source": "js/core.js",
+      "local": "vendor/arcade/js/core.js",
+      "sha256": "356425650f9c062442c84a6143e5160175a37d9308794797d9c7c5258963b82d"
+    },
+    {
+      "repository": "QSOLKCB/ARCADE",
+      "commit": "f29b780734a50171d55ae2f770930db8a487b31c",
       "source": "LICENSE",
       "local": "vendor/arcade/LICENSE",
       "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
@@ -16,11 +23,11 @@
       "sha256": "f6c326ee5c1f790099fefbc730f771bf571c7f56f755498aeb67915900027400"
     },
     {
-      "repository": "QSOLKCB/ARCADE",
-      "commit": "f29b780734a50171d55ae2f770930db8a487b31c",
-      "source": "js/core.js",
-      "local": "vendor/arcade/js/core.js",
-      "sha256": "356425650f9c062442c84a6143e5160175a37d9308794797d9c7c5258963b82d"
+      "repository": "QSOLKCB/E8_MUSIC",
+      "commit": "d8e5983d84af03f03a969abe3356dcf80c0e0e97",
+      "source": "js/e8-core.js",
+      "local": "vendor/e8-music/js/e8-core.js",
+      "sha256": "6bee327e078f4a829c4938b5225fcfb49e8a077d4a90922d861c86bc1e81ac03"
     },
     {
       "repository": "QSOLKCB/E8_MUSIC",
@@ -28,13 +35,6 @@
       "source": "LICENSE",
       "local": "vendor/e8-music/LICENSE",
       "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
-    },
-    {
-      "repository": "QSOLKCB/E8_MUSIC",
-      "commit": "d8e5983d84af03f03a969abe3356dcf80c0e0e97",
-      "source": "js/e8-core.js",
-      "local": "vendor/e8-music/js/e8-core.js",
-      "sha256": "6bee327e078f4a829c4938b5225fcfb49e8a077d4a90922d861c86bc1e81ac03"
     },
     {
       "repository": "QSOLKCB/GAMES",
@@ -94,17 +94,17 @@
     },
     {
       "repository": "QSOLKCB/VANILLAJS",
-      "commit": "227dd5ee0f2821b8e30a151524830f0a0027cf11",
-      "source": "LICENSE",
-      "local": "vendor/vanillajs/LICENSE",
-      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      "commit": "4d55d06ac3852307e7013468fff7b195da548929",
+      "source": "demos/racing-lab/track.js",
+      "local": "vendor/vanillajs/demos/racing-lab/track.js",
+      "sha256": "e81fdb79e3378273c1623daea58fbfb538d6d9da71a8a214ec4bf2eaa1c765f2"
     },
     {
       "repository": "QSOLKCB/VANILLAJS",
       "commit": "227dd5ee0f2821b8e30a151524830f0a0027cf11",
-      "source": "NOTICE",
-      "local": "vendor/vanillajs/NOTICE",
-      "sha256": "2612225a7b720c855ee22e049be6e2dec2c3d7b2c6a4a60c3677f192ac515a7d"
+      "source": "LICENSE",
+      "local": "vendor/vanillajs/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
     },
     {
       "repository": "QSOLKCB/VANILLAJS",
@@ -126,6 +126,13 @@
       "source": "modules/time/index.js",
       "local": "vendor/vanillajs/modules/time/index.js",
       "sha256": "de94c0bc04e6a269504c5742455ce114f824c2c0d9d59a2fd94555df5d9bb4a2"
+    },
+    {
+      "repository": "QSOLKCB/VANILLAJS",
+      "commit": "227dd5ee0f2821b8e30a151524830f0a0027cf11",
+      "source": "NOTICE",
+      "local": "vendor/vanillajs/NOTICE",
+      "sha256": "2612225a7b720c855ee22e049be6e2dec2c3d7b2c6a4a60c3677f192ac515a7d"
     }
   ]
 }
