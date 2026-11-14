@@ -18,7 +18,7 @@ All new files are authored under the repository Apache-2.0 license. The game nam
 
 ## Race contracts
 
-- Fixed simulation step **60 Hz** via the vendored VANILLAJS clock, at most 15 updates per rendered browser frame; elapsed time is clamped and over-budget time is not silently simulated as a giant physics step.
+- Fixed simulation step **60 Hz** via the vendored VANILLAJS clock, at most 15 updates per rendered browser frame; elapsed time is clamped and over-budget time is not silently simulated as a giant physics step. The clock's opt-in drift-repaying frame snapping (`snapTolerance` 0.5 ms, as in the career game) keeps a 59/61 Hz display from alternating zero- and double-tick frames; the simulation still receives the exact fixed step.
 - Gameplay position, speed, lane and rivals are stored as safe-integer Q16.16 units (`Q=65,536`). Race ticks take normalized keyboard/touch actions; no browser timing, network or ambient random values enter the tick function.
 - Seeded initial opponent positions and speeds use the pinned VANILLAJS generator. Identical seed and input tape should replay identically **inside the same JS implementation**. Visual projection, Web Audio and browser float DSP have separate reproducibility boundaries; no cross-platform bit-identity is claimed for pixels or sound.
 - Fixed bounds: 5–7 opponents, 11 roadside fixtures and 920 m drawing range. Opponent collision and weapon interactions consider only the local active window. Separate output-mode tests demonstrate no regression to the existing game.

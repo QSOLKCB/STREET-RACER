@@ -172,7 +172,7 @@ try{
   });
   await check('road-routes-steering-braking-and-focus-loss-pause',async()=>{
     receipt.roads=[];
-    for(const course of ['coast','canyon']){
+    for(const course of ['coast','canyon','aqueduct','ridge','interstate']){
       const before=resources((await snap()).career);await practice(course);await page.keyboard.down('w');await advance(6500);
       const x=(await snap()).race.player.x;await page.keyboard.down('d');await advance(300);await page.keyboard.up('d');assert.ok((await snap()).race.player.x>x);
       await page.keyboard.up('w');const speed=(await snap()).race.player.speed;await page.keyboard.down('s');await advance(300);await page.keyboard.up('s');assert.ok((await snap()).race.player.speed<speed);

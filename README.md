@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <strong>8 original classics · 8 rivals · 3 roads · 18 upgrades · 4 garage bays · 5 arcade side events</strong><br>
+  <strong>8 original classics · 8 rivals · 7 roads · 18 upgrades · 4 garage bays · 5 arcade side events</strong><br>
   <a href="#play-locally">Play locally</a> ·
   <a href="docs/GAMEPLAY.md">Driver's handbook</a> ·
   <a href="docs/ARCADE.md">Arcade side events</a> ·
@@ -66,13 +66,23 @@ the initial installation completes.
 - **Burn a Saturday at the arcade.** Five stake-free side events, from a
   pseudo-3D highway to an elevated stunt course, in your own car's paint.
 
-## Three roads, three reasons to build
+## Seven roads, seven reasons to build
 
 | Event | Distance | What matters |
 | --- | ---: | --- |
 | **Foundry Quarter** | 402 m | A clean launch, acceleration and well-timed shifts. |
+| **Aqueduct Half** | 805 m | Half a mile between concrete walls. Wheelspin and crosswind pull the car; hold the lane. |
+| **Saltflat Mile** | 1,609 m | A standing mile on the dry lake. Long gearing, top speed and a steady hand past 200 km/h. |
 | **Saltline Run** | 4,800 m | Long flowing coastal bends, a stable line and useful top speed. |
+| **Ridgeline Drive** | 5,600 m | A night road race with oncoming headlights in the left lane. Pass only when the road is clear. |
 | **Blackridge Pass** | 6,400 m | Cornering grip, braking, fuel and composure through the hills. |
+| **Interstate 67** | 8,000 m | Three lanes of slower traffic. Change lanes early and stay out of the trucks. |
+
+Every road answers the wheel, drag strips included: wheelspin on the launch and
+crosswind at speed drift the car, scraping a wall or trading paint with the rival
+costs speed and condition, and traffic on the night road and the highway is
+seeded, inert data placed before the green light. The rival reads the same
+traffic and can get it wrong too.
 
 The workshop and classified listings use original Canvas2D car illustrations.
 The racing view adds roadside scenery, curves, a rival, instruments and a

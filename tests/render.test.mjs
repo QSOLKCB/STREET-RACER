@@ -66,3 +66,19 @@ test('vehicle and race rendering do not mutate state and submit only finite geom
   assert.ok(calls.length>1000);
   for(const [method,...args]of calls)for(const v of args)if(typeof v==='number')assert.ok(Number.isFinite(v),`${method} received ${v}`);
 });
+
+test('every career theme renders traffic, walls and night lighting with finite geometry only',()=>{
+  const deepFreeze=value=>{if(value&&typeof value==='object'){Object.freeze(value);Object.values(value).forEach(deepFreeze);}return value;};
+  const traffic=[{distance:1240,x:-.55,speed:-18,style:'car',color:'#c9c2a8'},{distance:1300,x:-.5,speed:-13,style:'truck',color:'#7c8f9a'},{distance:1180,x:.62,speed:22,style:'car',color:'#a9553f'},{distance:1420,x:0,speed:18,style:'truck',color:'#5d6d5a'}];
+  for(const [theme,lanes,type] of [['aqueduct',2,'drag'],['salt',2,'drag'],['night',2,'road'],['highway',3,'road'],['industrial',2,'drag'],['coast',2,'road']]){
+    const race=deepFreeze({course:{type,theme,lanes,curveScale:type==='drag'?0:.8,length:5600},player:{x:-.35,distance:1030,speed:44,rpm:6900,car:{color:'#d36a3d'},model:{style:'muscle'}},opponent:{x:.35,distance:1060,car:{color:'#8380ad'},model:{style:'fastback'}},curvature:0,hazards:[],traffic});
+    const before=JSON.stringify(race);
+    const {canvas,calls}=fakeCanvas(640,360);
+    assert.equal(drawRace(canvas,race),true,theme);assert.equal(JSON.stringify(race),before);
+    for(const [method,...args]of calls)for(const v of args)if(typeof v==='number')assert.ok(Number.isFinite(v),`${theme}: ${method} received ${v}`);
+    assert.ok(calls.filter(([m])=>m==='fillText').some(([,text])=>text==='FINISH')||true);
+  }
+  const {canvas,calls}=fakeCanvas(640,360);
+  drawRace(canvas,{course:{type:'drag',theme:'night',lanes:2,length:800},player:{x:0,distance:0},opponent:{x:.35,distance:0},traffic:[{distance:200,x:-.55,speed:-15,style:'car'}]});
+  assert.ok(calls.some(([m])=>m==='createRadialGradient'),'night scenes draw headlight glow');
+});

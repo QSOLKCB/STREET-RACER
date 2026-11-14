@@ -5,7 +5,7 @@ STREET-RACER is an original garage and racing game. It uses small, pinned compon
 | Repository | Exact commit | Used source | Runtime purpose | Licence |
 | --- | --- | --- | --- | --- |
 | QSOLKCB/VANILLAJS | `227dd5ee0f2821b8e30a151524830f0a0027cf11` | `modules/time/index.js` | Fixed-step 60 Hz clock with bounded catch-up and pause reset | Apache-2.0 |
-| QSOLKCB/VANILLAJS | `1c195d910405e89a6f98ecc914309ff583f0ac7e` | `modules/math/index.js`, `modules/render-webgl/index.js` | Clamp and quaternion maths, and the low-poly XYZ/RGB WebGL renderer used by the arcade's 3D modes | Apache-2.0 |
+| QSOLKCB/VANILLAJS | `1c195d910405e89a6f98ecc914309ff583f0ac7e` | `modules/math/index.js`, `modules/render-webgl/index.js` | Clamp and quaternion maths, the seeded generator behind career hazards, strip crosswind and traffic placement, and the low-poly XYZ/RGB WebGL renderer used by the arcade's 3D modes | Apache-2.0 |
 | QSOLKCB/GAMES | `7e0a9019d07b491cffc9b698fa51acdb843c49cc` | `shared/qsol-input.js` | Standard gamepad reader, deadzones, button edges and neutral rearming | MIT; the file also preserves its Apache-2.0 VANILLAJS derivation notice |
 | QSOLKCB/ARCADE | `f29b780734a50171d55ae2f770930db8a487b31c` | `js/core.js` | Seeded `Arcade.rng` generates the percussion and tyre noise buffer once per audio context | Apache-2.0 |
 | QSOLKCB/E8_MUSIC | `d8e5983d84af03f03a969abe3356dcf80c0e0e97` | `js/e8-core.js` | E8 root generation, seeded traversal, projection, pitch quantization and MIDI-frequency conversion for original instrumental phrases | MPL-2.0 |
