@@ -24,8 +24,9 @@ export function createRace({mode='supercar',track,car,seed=2026,trackPack=null}=
   }));
   const courseQ=foundry?(m.id==='supercar'?foundry.circuitLengthQ:TRACK_TOTAL_LENGTH*Q):
     m.courseMeters*Q;
-  const world=Object.freeze({xQ:foundry?foundry.gates[0].xQ:0,
-    zQ:foundry&&mode==='supercar'?foundry.gates[0].zQ:0});
+  // Circuit mode starts at its first gate; touring modes start at the
+  // authored road origin, independent of arbitrary circuit-only gate edits.
+  const world=foundry?roadPositionQ(foundry,m.id,0,[]):{xQ:0,zQ:0};
   return {mode:m.id,track:setup.track.id,car:setup.car.id,seed,status:'running',ticks:0,
     distanceQ:0,speedQ:0,laneQ:0,laneVQ:0,health:100,boost:600,
     nitro:0,ammo:m.combat?12:0,shots:0,knockouts:0,collisionCooldown:0,shotCooldown:0,

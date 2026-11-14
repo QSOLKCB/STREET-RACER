@@ -29,7 +29,11 @@ export function compileTrack(pack){
   for(let i=0;i<gates.length;i++){
     const a=gates[i],b=gates[(i+1)%gates.length];
     const step=Math.round(Math.hypot(b.xQ-a.xQ,b.zQ-a.zQ));
-    if(!safeInt(step)||step<24*Q)throw new RangeError('invalid quantized circuit segment');
+    // The source validator already proved every gate separation >= 24 m in
+    // source Float64 coordinates. Component-wise Q16 rounding can shave one
+    // or two integer units from a just-valid edge. Do not reapply the exact
+    // source boundary to rounded endpoints; reject only an unusable segment.
+    if(!safeInt(step)||step<=0)throw new RangeError('invalid quantized circuit segment');
     lengthQ+=step;lengthsQ.push(lengthQ);
   }
   if(!safeInt(lengthQ)||lengthQ<=0)throw new RangeError('circuit perimeter overflow');
@@ -111,12 +115,14 @@ export function selectedTrackFromStorage(storage,mode){
     safeRecord(parsed,'selected pack');
     if(Object.keys(parsed).sort().join(',')!=='mode,track'||
        parsed.mode!==mode)return null;
-    return validateTrack(parsed.track);
+    // Validate source geometry *and* integer compilation before permitting a
+    // saved selection to affect game startup. Bad storage never bricks a game.
+    return compileTrack(parsed.track).spec;
   }catch{return null;} // Never block the existing built-in game.
 }
 export function storeSelectedTrack(storage,mode,pack){
   if(!FOUNDRY_MODES.includes(mode))throw new RangeError('unsupported racing game');
-  const selected=validateTrack(pack),text=JSON.stringify({mode,track:selected});
+  const selected=compileTrack(pack).spec,text=JSON.stringify({mode,track:selected});
   if(text.length>MAX_TRACK_BYTES+200)throw new RangeError('selected pack too large');
   storage.setItem(PACK_STORAGE_KEY,text);
 }

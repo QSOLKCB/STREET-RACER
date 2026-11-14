@@ -92,3 +92,20 @@ the complete allowlisted public tree and committed for byte-exact CI.
 Source-pinned vendor checks and full offline inventory checks are not skipped.
 
 **No release, tag, or merge is authorised by this draft.**
+
+
+## Codex P2 follow-up — review hardening
+
+The source Float64 validator is authoritative for the 24 m minimum gate
+separation. Integer compilation only rejects zero/unsafe segment lengths:
+rounding component coordinates to Q16.16 can shorten a valid segment by one
+or two Q16 units and must not contradict source admission. The editor's save
+and the game loader both compile validated packs before use.
+
+The game acquires optional localStorage in a try/catch (the getter can throw
+SecurityError) and fails open to the built-in course. Changing the course
+selector applies a fresh race immediately rather than resuming the previous
+course at an incompatible tick. Coast and Sprint world coordinates initialize
+from the touring centreline, independent of the circuit gate coordinates.
+Direct Track Foundry deep links register the same root-scope offline worker
+as the arcade games; a fresh browser profile can reopen the editor offline.

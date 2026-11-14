@@ -160,3 +160,11 @@ $('apply-track').addEventListener('click',()=>{
   }catch(error){note('Could not apply track: '+error.message,true);}
 });
 populate();note('Track Foundry ready · data-only, offline, source-pinned');
+
+
+// Direct editor deep links must install the same verified, root-scoped PWA
+// as the games. Browsing and importing local files never requires a worker.
+if('serviceWorker' in navigator&&
+   (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
+  navigator.serviceWorker.register('../../sw.js').catch(()=>{});
+}

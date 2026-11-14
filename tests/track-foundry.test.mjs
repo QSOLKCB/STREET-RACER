@@ -160,3 +160,55 @@ test('RACING-003 editor and offline deep links preserve the root legacy career',
   const app=readFileSync(new URL('../shared/racer/app.js',import.meta.url),'utf8');
   assert.match(app,/selectedTrackFromStorage/);
 });
+
+test('RACING-003 source-valid sub-Q16 gate margins compile and survive storage handoff',()=>{
+  // A regular octagon with 24 m + 1e-8 m edges is source-valid but some
+  // rounded integer endpoint distances are 24*Q - 1. Do not reject it
+  // after the strict donor validator has already admitted its geometry.
+  const pack=starter();
+  const radius=(24+1e-8)/(2*Math.sin(Math.PI/8));
+  pack.gates=Array.from({length:8},(_,i)=>({
+    x:radius*Math.cos(i*Math.PI/4+.0001),
+    z:radius*Math.sin(i*Math.PI/4+.0001)
+  }));
+  const admitted=validateTrack(pack);
+  const compiled=compileTrack(admitted);
+  const spans=compiled.lengthsQ.slice(1).map((v,i)=>v-compiled.lengthsQ[i]);
+  assert.ok(spans.some(v=>v<24*Q),'reproduce loss of a Q16 unit after quantization');
+  assert.ok(spans.every(v=>Number.isSafeInteger(v)&&v>0));
+  const memory=new Map(),storage={
+    getItem:key=>memory.get(key)??null,
+    setItem:(key,value)=>memory.set(key,value)
+  };
+  storeSelectedTrack(storage,'supercar',admitted);
+  assert.deepEqual(selectedTrackFromStorage(storage,'supercar'),admitted);
+  const game=createRace({mode:'supercar',trackPack:selectedTrackFromStorage(storage,'supercar')});
+  assert.equal(game.courseQ,compiled.circuitLengthQ);
+  memory.set(PACK_STORAGE_KEY,JSON.stringify({mode:'supercar',track:{broken:true}}));
+  assert.equal(selectedTrackFromStorage(storage,'supercar'),null);
+});
+
+test('RACING-003 touring worlds begin on the authored road, not a circuit gate',()=>{
+  const pack=starter();pack.gates[0].x=10;
+  const valid=validateTrack(pack);
+  for(const mode of ['coast','sprint']){
+    const s=createRace({mode,trackPack:valid});
+    const road=roadPositionQ(s.foundry,mode,0,[]);
+    assert.equal(s.worldXQ,road.xQ,'touring X starts at road centreline');
+    assert.equal(s.worldZQ,road.zQ,'touring Z starts on the authored road');
+    assert.notEqual(s.worldXQ,10*Q,'circuit-only gate must not displace touring car');
+    const before={x:s.worldXQ,z:s.worldZQ};
+    tickRace(s,{});
+    assert.deepEqual({x:s.worldXQ,z:s.worldZQ},before,
+      'stationary first tick must not teleport the world coordinate');
+  }
+  const circuit=createRace({mode:'supercar',trackPack:valid});
+  assert.equal(circuit.worldXQ,10*Q,'circuit still starts at first authored gate');
+});
+
+test('RACING-003 untrusted storage failures never prevent a built-in course',()=>{
+  const storage={getItem(){throw new Error('storage denied');},setItem(){throw new Error('denied');}};
+  for(const mode of ['coast','sprint','supercar','wasteland'])
+    assert.equal(selectedTrackFromStorage(storage,mode),null);
+  assert.throws(()=>storeSelectedTrack(storage,'coast',starterTrack()),/denied/);
+});

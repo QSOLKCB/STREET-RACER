@@ -6,7 +6,7 @@ import {advanceRaceFrame} from './frame.js';
 import {render,W,H} from './renderer.js';
 import {createRaceAudio} from './audio.js';
 import {createSprintRenderer} from './webgl.js';
-import {selectedTrackFromStorage,sourceEnvironmentToGame} from './foundry.js';
+import {selectedTrackFromStorage,sourceEnvironmentToGame,FOUNDRY_MODES} from './foundry.js';
 
 const mode=document.body.dataset.mode;
 if(!Object.hasOwn(MODES,mode))throw new Error('Invalid game mode');
@@ -21,7 +21,13 @@ const trackSelect=$('track'),carSelect=$('vehicle'),overlay=$('overlay'),heading
   sector=$('sector'),route=$('route');
 const clock=new FixedClock({step:1/60,maxFrame:.25,maxSteps:15,snapTolerance:0});
 const audio=createRaceAudio(),held=new Set();
-const savedFoundry=selectedTrackFromStorage(window.localStorage,mode);
+// Accessing the localStorage property itself may throw SecurityError in a
+// sandboxed/private origin. No game (even a non-Foundry mode) depends on it.
+const savedFoundry=(()=>{
+  if(!FOUNDRY_MODES.includes(mode))return null;
+  try{return selectedTrackFromStorage(window.localStorage,mode);}
+  catch{return null;}
+})();
 const selectedOptions=()=>{
   const usePack=savedFoundry&&trackSelect.value==='foundry';
   return {mode,track:usePack?sourceEnvironmentToGame(savedFoundry.environment):
@@ -75,7 +81,18 @@ if(route)route.closest('.metric').hidden=settings.kind!=='checkpoint';
 if(settings.combat)$('objective').textContent='Survive · F to fire · take down rivals';
 if(savedFoundry)$('objective').textContent=
   'TRACK FOUNDRY · '+savedFoundry.name+' · '+(mode==='supercar'?'8 edited gates':'4 authored road stages');
-trackSelect.addEventListener('change',()=>{if(playing)pauseGame('COURSE CHANGED');});
+trackSelect.addEventListener('change',()=>{
+  // A course selection is an explicit *new race*, not a pause of the prior
+  // Foundry state followed by RESUME on its obsolete centreline.
+  if(playing)pauseGame('COURSE CHANGED');
+  else{clearInput();audio.silence();}
+  newSelectedRace();
+  playing=false;clock.setPaused(true);last=null;
+  showOverlay('COURSE CHANGED',
+    'The selected course has been applied. This starts a fresh race.',
+    'START NEW COURSE');
+  pause.textContent='START';
+});
 function controls(){return {accelerate:held.has('accelerate'),brake:held.has('brake'),
   steer:Number(held.has('right'))-Number(held.has('left')),
   boost:held.has('boost'),fire:held.has('fire')};}

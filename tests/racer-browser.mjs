@@ -138,6 +138,14 @@ try{
       !r.url().startsWith('data:')&&!r.url().startsWith('blob:'))offsite.push(r.url());});
     const editorUrl=origin+'/STREET-RACER/games/track-foundry/';
     await page.goto(editorUrl,{waitUntil:'networkidle'});
+    // Fresh browser context first visits the editor directly. Its own PWA
+    // registration must populate the cache before any game has been visited.
+    await page.waitForFunction(()=>!!navigator.serviceWorker?.controller,{timeout:20000});
+    await page.context().setOffline(true);
+    await page.reload({waitUntil:'load'});
+    assert.equal(await page.locator('#track-name').inputValue(),'The Long Way Home',
+      'Track Foundry must reload offline after direct editor-only first visit');
+    await page.context().setOffline(false);
     assert.equal(await page.locator('#track-name').inputValue(),'The Long Way Home');
     assert.equal(await page.locator('#course-preview').evaluate(c=>
       c.getContext('2d').getImageData(100,100,1,1).data[3]>0),true);
@@ -174,6 +182,21 @@ try{
     await page.reload({waitUntil:'load'});
     assert.equal(await page.locator('#track').inputValue(),'foundry');
     await page.context().setOffline(false);
+    // Reproduce Codex P2: change course *after* the saved Foundry race has
+    // advanced. The new selection must create a 3600 m built-in sprint,
+    // not resume the obsolete 4800 m Foundry world.
+    await page.locator('#start').click();
+    await page.keyboard.down('ArrowUp');
+    await page.waitForTimeout(370);
+    await page.keyboard.up('ArrowUp');
+    await page.locator('#track').selectOption('coast');
+    assert.equal(await page.locator('#overlay-heading').textContent(),'COURSE CHANGED');
+    assert.match(await page.locator('#distance').textContent(),/\/ 3600 m/);
+    assert.equal(await page.locator('#start').textContent(),'START NEW COURSE');
+    await page.locator('#start').click();
+    assert.equal(await page.locator('#overlay').isVisible(),false);
+    assert.match(await page.locator('#distance').textContent(),/\/ 3600 m/,
+      'resume must keep the newly selected built-in course');
     await page.goto(editorUrl,{waitUntil:'networkidle'});
     await page.locator('#target-mode').selectOption('coast');
     await page.locator('#import-track').setInputFiles({name:'original.json',
@@ -204,6 +227,30 @@ try{
     findings.push({mode:'track-foundry',status:'PASS',pack:pack.name});
     await page.close();
   }
+  // A SecurityError can be thrown by the localStorage *getter*, before
+  // getItem() is called. All four games must still initialise and drive.
+  const locked=await browser.newContext({viewport:{width:960,height:760}});
+  await locked.addInitScript(()=>{
+    Object.defineProperty(window,'localStorage',{
+      configurable:true,get(){throw new DOMException('storage denied','SecurityError');}
+    });
+  });
+  try{
+    for(const mode of ['supercar-circuit','coast-run','outland-road','coastal-sprint']){
+      const page=await locked.newPage(),errors=[];
+      page.on('pageerror',error=>errors.push(error.message));
+      await page.goto('http://127.0.0.1:'+server.address().port+
+        '/STREET-RACER/games/'+mode+'/',{waitUntil:'load'});
+      assert.equal(await page.locator('#start').isVisible(),true,
+        'denied localStorage getter must not prevent '+mode+' loading');
+      assert.notEqual(await page.locator('#track').inputValue(),'foundry');
+      await page.locator('#start').click();
+      assert.equal(await page.locator('#overlay').isVisible(),false);
+      assert.deepEqual(errors,[],'storage-denied page errors: '+mode);
+      await page.close();
+    }
+  }finally{await locked.close();}
+  findings.push({mode:'denied-localStorage',status:'PASS'});
 }finally{
   await browser?.close();await new Promise(resolve=>server.close(resolve));
   await fs.writeFile(path.join(out,'receipt.json'),JSON.stringify(findings,null,2)+'\n');
