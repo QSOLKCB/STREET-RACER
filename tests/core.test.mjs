@@ -484,3 +484,50 @@ test('saved careers with the original three roads still load and the new roads r
   const hostile = copy(settled.state); hostile.bestTimes.bogus = 12;
   assert.deepEqual(validateCareer(hostile).bestTimes, settled.state.bestTimes, 'unknown course records are dropped');
 });
+
+test('review: a traffic contact beyond the finish line cannot change the winner or the crossing time', () => {
+  const state = starter();
+  const setup = withTraffic => {
+    const { race } = startRace(state, { rivalId: 'mags', courseId: 'interstate', stake: 'practice' });
+    for (let i = 0; i < 181; i++) stepRace(race, { throttle: 1 });
+    Object.assign(race.player, { distance: 7999.9, speed: 40, gear: 4, x: 0 });
+    Object.assign(race.opponent, { distance: 7999.87, speed: 40, gear: 4, x: 0.62 });
+    race.traffic = withTraffic ? [{ id: 0, distance: 8004.61, previous: 8004.61, x: 0, speed: 20, style: 'car', color: '#ccc', cooldown: 0, hits: 0 }] : [];
+    stepRace(race, { throttle: 1 });
+    return race;
+  };
+  const clean = setup(false), contact = setup(true);
+  assert.equal(clean.status, 'finished'); assert.equal(clean.winner, 'player');
+  assert.equal(contact.status, 'finished'); assert.equal(contact.winner, 'player');
+  assert.equal(contact.finishTime, clean.finishTime, 'the interpolated crossing is taken from the driven endpoint');
+  assert.equal(contact.player.contacts, 0, 'no contact is applied to a car that has crossed the line');
+  assert.ok(contact.player.distance >= 8000);
+});
+
+test('review: traffic that rear-ends a stopped racer shoves it forward, never back through the car behind', () => {
+  const state = starter();
+  const { race } = startRace(state, { rivalId: 'mags', courseId: 'interstate', stake: 'practice' });
+  for (let i = 0; i < 181; i++) stepRace(race, { throttle: 1 });
+  Object.assign(race.player, { distance: 100, speed: 0, x: 0 });
+  Object.assign(race.opponent, { distance: 200, speed: 30, x: 0.62 });
+  race.traffic = [{ id: 0, distance: 95.5, previous: 95.5, x: 0, speed: 20, style: 'car', color: '#ccc', cooldown: 0, hits: 0 }];
+  const condition = race.player.condition;
+  stepRace(race, {});
+  assert.equal(race.player.contacts, 1);
+  assert.ok(race.player.distance >= 100, `progress is kept (${race.player.distance})`);
+  assert.ok(race.player.speed > 0, 'the stopped car is pushed forward a little');
+  assert.ok(race.traffic[0].distance <= race.player.distance - 4.6, 'the traffic car stays behind the racer');
+  assert.ok(race.traffic[0].speed <= race.player.speed * 0.8 + 1e-9, 'the traffic car slows after the impact');
+  assert.ok(race.player.condition < condition && race.player.condition >= condition - 10);
+  assert.ok(race.events.some(e => /Rear-ended by traffic/.test(e.message)));
+  // The racer running into the back of slower traffic still drops in behind it.
+  const { race: chase } = startRace(state, { rivalId: 'mags', courseId: 'interstate', stake: 'practice' });
+  for (let i = 0; i < 181; i++) stepRace(chase, { throttle: 1 });
+  Object.assign(chase.player, { distance: 100, speed: 35, x: 0 });
+  Object.assign(chase.opponent, { distance: 200, speed: 30, x: 0.62 });
+  chase.traffic = [{ id: 0, distance: 104, previous: 104, x: 0, speed: 20, style: 'car', color: '#ccc', cooldown: 0, hits: 0 }];
+  stepRace(chase, { throttle: 1 });
+  assert.equal(chase.player.contacts, 1);
+  assert.ok(chase.player.distance < chase.traffic[0].distance && chase.player.speed <= 20 * 0.8 + 1e-9);
+  assert.ok(chase.events.some(e => /Traffic clipped/.test(e.message)));
+});

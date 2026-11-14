@@ -410,19 +410,26 @@ function trafficContacts(race, driver, previous, isOpponent) {
       damage = 14 + Math.min(16, closing / 4);
       driver.speed *= 0.3; car.speed = -2; car.x = -0.8;
       if (!isOpponent) event(race, 'Head-on with oncoming traffic! Hold the right lane until the road is clear.');
-    } else {
-      // Rear-ended: the driver drops in behind the traffic car at its pace.
+    } else if (previous <= car.previous) {
+      // The racer ran into the back of traffic: drop in behind it at its pace.
       damage = 6 + Math.min(8, Math.max(0, closing) / 4);
       driver.speed = Math.min(driver.speed, car.speed * 0.8);
       driver.distance = Math.min(driver.distance, car.distance - length);
       car.speed = Math.min(car.speed + 2, 30);
       if (!isOpponent) event(race, `${car.style === 'truck' ? 'Truck' : 'Traffic'} clipped. Change lanes before the gap closes.`);
+    } else {
+      // Traffic ran into the back of the racer: the racer is shoved forward,
+      // never backward through the car that hit it, and the traffic slows.
+      damage = 4 + Math.min(6, Math.max(0, -closing) / 4);
+      driver.speed = Math.max(driver.speed, Math.min(car.speed * 0.5, driver.speed + 4));
+      car.speed = Math.min(car.speed, driver.speed * 0.8);
+      car.distance = Math.min(car.distance, driver.distance - length);
+      if (!isOpponent) event(race, `Rear-ended by ${car.style === 'truck' ? 'a truck' : 'traffic'}. Keep up with the flow or clear the lane.`);
     }
     driver.condition = Math.max(0, driver.condition - damage);
     driver.contacts++; car.cooldown = 60; car.hits++;
   }
 }
-
 function rivalContact(race, previousPlayer, previousOpponent) {
   if (race.contactCooldown > 0) { race.contactCooldown--; return; }
   const p = race.player, o = race.opponent;
@@ -501,16 +508,19 @@ function tick(race, input) {
   const aiInput = rivalControls(race);
   const previousPlayer = drive(race, race.player, input, false);
   const previousOpponent = drive(race, race.opponent, aiInput, true);
-  rivalContact(race, previousPlayer, previousOpponent);
-  if (race.traffic.length) {
-    trafficContacts(race, race.player, previousPlayer, false);
-    trafficContacts(race, race.opponent, previousOpponent, true);
-  }
+  // The finish is decided from the driven endpoints. A contact in the same
+  // tick can still cost speed or condition, but it never rewinds a car that
+  // has already crossed the line or changes the interpolated crossing time.
   const length = race.course.length;
   const playerFinished = race.player.distance >= length;
   const opponentFinished = race.opponent.distance >= length;
   if (playerFinished) race.finishTime = race.time - STEP + STEP * (length - previousPlayer) / Math.max(1e-12, race.player.distance - previousPlayer);
   if (opponentFinished) race.opponentFinishTime = race.time - STEP + STEP * (length - previousOpponent) / Math.max(1e-12, race.opponent.distance - previousOpponent);
+  if (!playerFinished && !opponentFinished) rivalContact(race, previousPlayer, previousOpponent);
+  if (race.traffic.length) {
+    if (!playerFinished) trafficContacts(race, race.player, previousPlayer, false);
+    if (!opponentFinished) trafficContacts(race, race.opponent, previousOpponent, true);
+  }
   if (playerFinished || opponentFinished) {
     const won = playerFinished && (!opponentFinished || race.finishTime <= race.opponentFinishTime);
     finish(race, won ? 'player' : 'opponent', won ? 'First across the line.' : `${race.rival.name} crossed the line first.`);

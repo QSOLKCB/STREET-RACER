@@ -111,7 +111,10 @@ Two roads carry traffic. **Ridgeline Drive** runs at night with oncoming cars
 and trucks in the left lane; a head-on nearly stops the car and costs 14–30%
 condition. **Interstate 67** has three lanes of slower traffic in your
 direction; rear-ending a car drops you in behind it at its pace and costs
-6–14% condition. Every traffic vehicle is placed from the race seed before the
+6–14% condition, while traffic that runs into the back of a slowed car shoves
+it forward, costs 4–10% and never pushes it back down the road. A contact in
+the same step as a finish-line crossing cannot change the result: the winner
+and the interpolated crossing time come from the driven positions. Every traffic vehicle is placed from the race seed before the
 green light, so a retried race meets the same traffic. The rival reads the same
 traffic, changes lanes or brakes to avoid it and can crash into it as well.
 
