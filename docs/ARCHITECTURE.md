@@ -95,15 +95,20 @@ accepts finite frame durations from zero through 0.25 seconds and consumes fixed
 ticks. The app passes the clock's exact fixed step into it. Shift edges are queued
 until a simulation tick consumes them; a held shift input does not jump several gears.
 
-Race hazards derive from the career seed, attempt number and course. Road
-curvature is a pure function of course and distance. Neither rendering nor audio
-calls the simulation RNG. Repeating the same initial state and tick inputs in the
+Race hazards, drag-strip crosswind gusts, each driver's torque-steer direction
+and every traffic vehicle derive from the career seed, attempt number and course
+through the pinned VANILLAJS `seededRandom` generator, drawn once in `startRace`;
+no tick draws from it. Road curvature is a pure function of course and distance.
+Neither rendering nor audio calls the simulation RNG. Repeating the same initial state and tick inputs in the
 tested runtime reproduces the state. Floating-point operations and trigonometric
 functions are used: this is not a cross-engine bit-exactness or formal-proof claim.
 
 The arcade model includes acceleration, braking, grip, gear ratios, shift delay,
-condition-dependent power, fuel, sustained redline damage, off-road losses and
-roadside hazards, with a per-course time limit. Finish-line crossing is
+condition-dependent power, fuel, sustained redline damage, off-road and strip-wall
+losses, roadside hazards, lane-overlap contact between the two racers and with
+oncoming or same-direction traffic (one-dimensional swept detection with a
+stylised response), and a deterministic rival that holds a lane, merges, passes
+or brakes around the same traffic, with a per-course time limit. Finish-line crossing is
 interpolated within the last step to
 resolve two cars crossing in one tick. It is not a certified real-vehicle dynamics
 or engine model; the displayed build estimate is not a real-world performance promise.

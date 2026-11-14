@@ -125,7 +125,7 @@ function challenge(rivalId,practice=false){
   const course=COURSES.find(c=>c.id===ui.courseId)||COURSES[0];
   const car=getActiveCar(career);if(!car){toast('Buy a car first.',true);return;}
   const available=canRace(career,{rivalId,courseId:course.id,stake:'pink'});
-  showDialog(`${rival.name} · ${course.name}`,`<div class="eyebrow">${UI.esc(rival.nickname)}</div><p>“${UI.esc(rival.quote)}”</p><div class="race-form"><label class="stake-option"><input type="radio" name="stake" value="practice" ${practice?'checked':''}><span><strong>Just for the run · practice</strong><small>No money, fuel, wear or reputation changes.</small></span></label><label class="stake-option"><input type="radio" name="stake" value="cash" ${practice?'':'checked'}><span><strong>Cash challenge · ${UI.money(rival.wager)} at stake</strong><small>${UI.money(rival.reward)} first-win purse, plus the rival’s wager. Repeat wins earn a smaller purse.</small></span></label><label class="stake-option"><input type="radio" name="stake" value="pink" ${available.ok?'':'disabled'}><span><strong>Pink slips · risk your ${UI.esc(UI.displayCar(car).name)}</strong><small>${available.ok?'Win their car or lose yours. Requires a separate confirmation.':UI.esc(available.message)}</small></span></label><label for="race-transmission">Shifting<select id="race-transmission"><option value="auto" ${preferences.transmission==='auto'?'selected':''}>Automatic · focus on the road</option><option value="manual" ${preferences.transmission==='manual'?'selected':''}>Manual · E / Q to shift</option></select></label></div><p class="file-hint">${course.type==='drag'?'A clean launch, four gears and a quarter mile.':'Steer through the bends. Brake before tight corners and avoid roadwork markers.'} You can pause at any time.</p><div class="dialog-actions"><button data-action="close">Maybe later</button><button class="primary" data-action="race-launch">Line up →</button></div>`,'challenge');
+  showDialog(`${rival.name} · ${course.name}`,`<div class="eyebrow">${UI.esc(rival.nickname)}</div><p>“${UI.esc(rival.quote)}”</p><div class="race-form"><label class="stake-option"><input type="radio" name="stake" value="practice" ${practice?'checked':''}><span><strong>Just for the run · practice</strong><small>No money, fuel, wear or reputation changes.</small></span></label><label class="stake-option"><input type="radio" name="stake" value="cash" ${practice?'':'checked'}><span><strong>Cash challenge · ${UI.money(rival.wager)} at stake</strong><small>${UI.money(rival.reward)} first-win purse, plus the rival’s wager. Repeat wins earn a smaller purse.</small></span></label><label class="stake-option"><input type="radio" name="stake" value="pink" ${available.ok?'':'disabled'}><span><strong>Pink slips · risk your ${UI.esc(UI.displayCar(car).name)}</strong><small>${available.ok?'Win their car or lose yours. Requires a separate confirmation.':UI.esc(available.message)}</small></span></label><label for="race-transmission">Shifting<select id="race-transmission"><option value="auto" ${preferences.transmission==='auto'?'selected':''}>Automatic · focus on the road</option><option value="manual" ${preferences.transmission==='manual'?'selected':''}>Manual · E / Q to shift</option></select></label></div><p class="file-hint">${course.type==='drag'?'A clean launch, four gears and a straight line to hold: wheelspin and crosswind pull the car, so steer to stay off the walls.':course.traffic==='oncoming'?'Two lanes after dark. Oncoming traffic owns the left lane; pull out to pass only when the headlights ahead are clear.':course.traffic==='flow'?'Three lanes of slower traffic. Change lanes early, keep the speed up and do not rear-end the trucks.':'Steer through the bends. Brake before tight corners and avoid roadwork markers.'} You can pause at any time.</p><div class="dialog-actions"><button data-action="close">Maybe later</button><button class="primary" data-action="race-launch">Line up →</button></div>`,'challenge');
 }
 function launchChallenge(){
   const stake=$('input[name=stake]:checked')?.value||'practice';
@@ -312,7 +312,7 @@ function paintRace(){
   const show=race.status==='countdown'||(race.status==='running'&&race.time<1.1);
   $('#race-message').hidden=!show;
   setText('race-countdown',race.status==='countdown'?Math.ceil(race.countdown):'GO');
-  setText('race-callout',race.status==='countdown'?'REV IT UP. HOLD YOUR LINE.':race.course.type==='drag'?'FOUR GEARS. ONE LINE.':'READ THE ROAD.');
+  setText('race-callout',race.status==='countdown'?'REV IT UP. HOLD YOUR LINE.':race.course.type==='drag'?'FOUR GEARS. HOLD THE LANE.':race.course.traffic==='oncoming'?'MIND THE HEADLIGHTS.':race.course.traffic==='flow'?'THREAD THE TRAFFIC.':'READ THE ROAD.');
   if(!ok){setText('drive-hint','CANVAS UNAVAILABLE · USE THE INSTRUMENTS OR PAUSE');canvas.setAttribute('aria-label','Canvas unavailable. Race instruments and pause controls remain available.');}
   for(const el of raceScreen.querySelectorAll('[data-control]')){
     const control=el.dataset.control,held=control==='left'?lastInput.steer<0:control==='right'?lastInput.steer>0:lastInput[control]>0;
@@ -347,7 +347,7 @@ function frame(timestamp){
     if(race.status==='running'&&previousStatus==='countdown')audio.cue('start');
     previousStatus=race.status;
     const event=race.events.at(-1),eventKey=event?event.time+':'+event.message:'';
-    if(event&&eventKey!==lastEvent){lastEvent=eventKey;if(/clipped/.test(event.message)){audio.cue('crash');toast(event.message);}}
+    if(event&&eventKey!==lastEvent){lastEvent=eventKey;if(/clipped|scrape|Head-on|Traded paint/.test(event.message)){audio.cue('crash');toast(event.message);}}
     if(timestamp-lastPaint>=1000/60-.5){paintRace();lastPaint=timestamp;}
     if(race.status==='finished')finishRace();
   }
@@ -482,7 +482,7 @@ if(typeof ResizeObserver==='function')new ResizeObserver(queueDraw).observe(main
 window.addEventListener('beforeunload',event=>{if(!storageOK&&career.revision>0){event.preventDefault();event.returnValue='';}});
 
 // Observation only: callers receive copies, never the live career or race.
-Object.defineProperty(globalThis,'__streetRacer',{get:()=>structuredClone({version:'0.2.0',view:ui.view,career,race,paused,arcade,arcadePaused,arcadeMode,arcadeScene:Boolean(arcadeScene),arcadeFailure,input:lastInput,audio:audio.state,preferences,storageOK,clock:{ticks:clock.ticks,accumulator:clock.accumulator}})});
+Object.defineProperty(globalThis,'__streetRacer',{get:()=>structuredClone({version:'0.3.0',view:ui.view,career,race,paused,arcade,arcadePaused,arcadeMode,arcadeScene:Boolean(arcadeScene),arcadeFailure,input:lastInput,audio:audio.state,preferences,storageOK,clock:{ticks:clock.ticks,accumulator:clock.accumulator}})});
 savePreferences();render();
 if(!storageOK)$('#save-status').textContent='EXPORT YOUR CAREER TO KEEP IT';
 requestAnimationFrame(frame);

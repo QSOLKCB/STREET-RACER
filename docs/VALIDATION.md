@@ -54,7 +54,7 @@ Independent review reproduced and fixed exhausted pink-slip prize identities, ov
 
 ## Limits
 
-- Racing is an arcade simulation using bounded JavaScript numbers, not a formally verified physical model. Career races have no vehicle-to-vehicle collision model; the arcade uses linear impulse contacts without swept collision.
+- Racing is an arcade simulation using bounded JavaScript numbers, not a formally verified physical model. Career races detect rival and traffic contact with a one-dimensional swept longitudinal check plus a lane-overlap test and apply stylised speed, condition and lateral nudges; this is contact detection with scripted response, not a rigid-body solver. The arcade uses linear impulse contacts without swept collision.
 - Hosted Chromium renders WebGL through SwiftShader. That exercises the code path, not GPU drivers, real-device frame rates or visual quality on hardware.
 - Same-source, same-runtime replay is tested. Cross-engine bit-identical floating-point results are not claimed.
 - Headless Chromium and emulated touch do not establish physical-phone, gamepad hardware, Firefox, WebKit or subjective listening quality.

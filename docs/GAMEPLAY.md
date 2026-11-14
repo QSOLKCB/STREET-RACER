@@ -63,9 +63,13 @@ route. Service and refuel before a long challenge.
 
 | Route | Length | Character |
 | --- | ---: | --- |
-| Foundry Quarter | 402 m | Straight quarter-mile. Steering is fixed to your lane. |
-| Saltline Run | 4,800 m | Long flowing coastal road with gentler bends. |
+| Foundry Quarter | 402 m | Straight quarter-mile under the foundry lights. Forgiving, but the car still drifts. |
+| Aqueduct Half | 805 m | Half a mile down a walled concrete channel. Torque steer and wind pull at the wheel. |
+| Saltflat Mile | 1,609 m | A standing mile across the dry lake; crosswind at top speed demands corrections. |
+| Saltline Run | 4,800 m | Long flowing coastal road with gentler bends and roadwork markers. |
+| Ridgeline Drive | 5,600 m | Night road race. Two lanes; oncoming traffic owns the left one. |
 | Blackridge Pass | 6,400 m | Long hill-road run with tighter curves and roadside markers. |
+| Interstate 67 | 8,000 m | Three-lane highway with slower same-direction traffic, including trucks. |
 
 The simulation advances in **fixed 1/60-second steps**. The browser may render
 at another refresh rate; accumulated frame time feeds the same steps. Pausing
@@ -90,30 +94,47 @@ Steering authority grows with speed. On road events, steer against the bend and
 keep the car on the paved surface.
 Excess speed in a tight corner scrubs speed; leaving the road slows and damages
 the car. Clipping a cone or barrel costs speed and condition. Their positions are
-seeded, so the same career state and race can be retried consistently. Rivals
-follow a deterministic line and do not steer into the player's lane to force
-collisions. Career races have no vehicle-to-vehicle collision model; the arcade
-side events do.
+seeded, so the same career state and race can be retried consistently.
+
+On the drag strips the wheel matters too. Wheelspin on the launch pulls a
+powerful car to one side, and a seeded crosswind wanders every car at speed, so
+hold your lane with small corrections. Drifting past the shoulder scrapes the
+wall, which costs speed and condition; the quarter rarely needs a correction,
+the half mile sometimes does and the standing mile usually does.
+
+Cars touch when their lanes overlap: the car behind loses most of the speed,
+both lose a little condition and they are nudged apart. Rivals follow a
+deterministic line and never steer into the player's lane deliberately, but a
+rival that merges or passes can trade paint if you hold the same lane.
+
+Two roads carry traffic. **Ridgeline Drive** runs at night with oncoming cars
+and trucks in the left lane; a head-on nearly stops the car and costs 14–30%
+condition. **Interstate 67** has three lanes of slower traffic in your
+direction; rear-ending a car drops you in behind it at its pace and costs
+6–14% condition. Every traffic vehicle is placed from the race seed before the
+green light, so a retried race meets the same traffic. The rival reads the same
+traffic, changes lanes or brakes to avoid it and can crash into it as well.
 
 The first car across the line wins. If both cross during the same simulation
 step, interpolated finish times decide the result. Mechanical failure, a complete
 fuel stop, retirement or the time limit loses the challenge. Race time limits are
-120 seconds on the strip, 420 seconds on Saltline Run and 600 seconds on
-Blackridge Pass. A stock Sparrow needs roughly two minutes for the coast and
-about three and a quarter for the Pass, so fuel and condition matter more on
-the long roads.
+120, 150 and 200 seconds on the three strips, 420 seconds on Saltline Run,
+480 on Ridgeline Drive, 600 on Blackridge Pass and 540 on Interstate 67. A
+stock Sparrow needs roughly two minutes for the coast, about three and a
+quarter for the Pass and a little over three for the highway, so fuel and
+condition matter more on the long roads.
 
 ## Invitations and the crown
 
 | Rival | Reputation needed | First-win purse | Cash wager | Home route |
 | --- | ---: | ---: | ---: | --- |
 | Mags — The Regular | 0 | $280 | $75 | Foundry Quarter |
-| Patch — Night Shift | 10 | $450 | $125 | Foundry Quarter |
+| Patch — Night Shift | 10 | $450 | $125 | Aqueduct Half |
 | June — Coastline | 22 | $700 | $200 | Saltline Run |
 | Wren — Switchback | 36 | $1,000 | $300 | Blackridge Pass |
-| Sol — Heavy Weather | 52 | $1,450 | $450 | Foundry Quarter |
-| Val — After Hours | 70 | $2,000 | $600 | Saltline Run |
-| Kit — Ghost Line | 90 | $2,800 | $800 | Blackridge Pass |
+| Sol — Heavy Weather | 52 | $1,450 | $450 | Interstate 67 |
+| Val — After Hours | 70 | $2,000 | $600 | Saltflat Mile |
+| Kit — Ghost Line | 90 | $2,800 | $800 | Ridgeline Drive |
 | The Monarch — Boulevard Crown | 112 | $4,200 | $1,000 | Blackridge Pass |
 
 Each new rival defeated grants enough reputation to reach the next invitation,
