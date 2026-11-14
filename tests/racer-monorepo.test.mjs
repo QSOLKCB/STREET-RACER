@@ -5,7 +5,7 @@ import {Q,createRace,tickRace,replay,distanceMeters,speedKph,finishMeters} from 
 import {MODES,modeSettings} from '../shared/racer/config.js';
 import {FixedClock} from '../vendor/vanillajs/modules/time/index.js';
 import {advanceRaceFrame} from '../shared/racer/frame.js';
-import {TOUR_STAGE_METERS,TOUR_STAGES,sprintCenter,sprintHeading,tourPalette,routeBend,
+import {TOUR_STAGE_METERS,TOUR_STAGES,SPRINT_METERS,sprintCenter,sprintHeading,tourPalette,routeBend,
   sweptLongitudinalContact,SPRINT_ROAD_HALF_WIDTH_METRES,
   SPRINT_TYRE_HALF_WIDTH_METRES,SPRINT_LANE_SCALE_METRES,
   SPRINT_FINISH_LANE,SPRINT_OFFROAD_LANE,sprintLateralMetres} from '../shared/racer/course.js';
